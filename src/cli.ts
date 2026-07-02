@@ -4,8 +4,8 @@ import { access, writeFile } from "node:fs/promises";
 import { constants } from "node:fs";
 import { resolve } from "node:path";
 import { parseArgs } from "node:util";
-import { loadConfig } from "./config.js";
-import { build } from "./build.js";
+import { buildProject } from "./build.js";
+import { watchProject } from "./watch.js";
 
 const DEFAULT_CONFIG_PATH = "custom-imports.config.ts";
 
@@ -80,30 +80,6 @@ async function initConfig(configPath: string): Promise<void> {
   console.log(`Created ${configPath}`);
 }
 
-async function runBuild(configPath: string): Promise<void> {
-  const config = await loadConfig(configPath);
-  const result = await build(configPath, config);
-
-  console.log(
-    `build (${configPath}, ${config.plugins.length} plugins, ${result.files.length} files, ${result.generated.length} generated)`,
-  );
-
-  for (const file of result.files) {
-    for (const imp of file.imports) {
-      console.log(`  ${file.path}: ${imp.resolvedPath}`);
-    }
-  }
-
-  for (const assetPath of result.generated) {
-    console.log(`  generated ${assetPath}`);
-  }
-}
-
-async function runWatch(configPath: string): Promise<void> {
-  const config = await loadConfig(configPath);
-  console.log(`watch (${configPath}, ${config.plugins.length} plugins)`);
-}
-
 async function main(): Promise<void> {
   const options = parseCliArgs(process.argv.slice(2));
 
@@ -118,11 +94,11 @@ async function main(): Promise<void> {
   }
 
   if (options.watch) {
-    await runWatch(options.configPath);
+    await watchProject(options.configPath);
     return;
   }
 
-  await runBuild(options.configPath);
+  await buildProject(options.configPath);
 }
 
 main().catch((error: unknown) => {

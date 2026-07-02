@@ -3,6 +3,7 @@ import { constants } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import type { Context, PluginErrorDetails, Writer } from "./plugin.js";
 import { PluginError } from "./plugin.js";
+import { shadowPaths } from "./shadow.js";
 
 export interface CreateContextImport {
   source: string;
@@ -55,6 +56,20 @@ async function createAppendWriter(
   };
 }
 
+async function appendAssetManifest(
+  manifestPath: string,
+  relativePath: string,
+  details: PluginErrorDetails,
+): Promise<void> {
+  if (await fileExists(manifestPath)) {
+    await appendFile(manifestPath, `${relativePath}\n`);
+    return;
+  }
+
+  await mkdir(dirname(manifestPath), { recursive: true });
+  await writeFile(manifestPath, `${relativePath}\n`, { flag: "wx" });
+}
+
 export async function createContext(
   assetPath: string,
   options: CreateContextOptions,
@@ -68,7 +83,10 @@ export async function createContext(
   };
 
   const assetRelativePath = relative(options.sourceDir, assetPath);
-  const shadowBase = join(options.shadowDir, assetRelativePath);
+  const { shadowBase, assetsPath } = shadowPaths(
+    options.shadowDir,
+    assetRelativePath,
+  );
   const jsPath = `${shadowBase}.js`;
   const dtsPath = `${shadowBase}.d.ts`;
   const assetOutputDir = dirname(shadowBase);
@@ -90,8 +108,10 @@ export async function createContext(
     dtsFile,
 
     async newAssetFile(relativePath: string): Promise<Writer> {
-      const assetPath = join(assetOutputDir, relativePath);
-      return createAppendWriter(assetPath, details);
+      const assetFilePath = join(assetOutputDir, relativePath);
+      const writer = await createAppendWriter(assetFilePath, details);
+      await appendAssetManifest(assetsPath, relativePath, details);
+      return writer;
     },
 
     error(message: string): never {

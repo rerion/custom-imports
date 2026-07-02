@@ -1,16 +1,9 @@
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
-import { Language, Parser, type Point, type Tree } from "web-tree-sitter";
+import { Language, Parser, type Tree } from "web-tree-sitter";
 
-export interface RawImportStatement {
+export interface Import {
   source: string;
-  startIndex: number;
-  endIndex: number;
-  startPosition: Point;
-  endPosition: Point;
-}
-
-export interface ImportStatement extends RawImportStatement {
   resolvedPath: string;
 }
 
@@ -30,16 +23,14 @@ function grammarWasmPath(fileName: string): string {
   return join(packageRoot, fileName);
 }
 
-async function getParserSession(): Promise<ParserSession> {
+export async function getParserSession(): Promise<ParserSession> {
   if (!parserSession) {
     parserSession = (async () => {
       await Parser.init();
       const typescript = await Language.load(
         grammarWasmPath("tree-sitter-typescript.wasm"),
       );
-      const tsx = await Language.load(
-        grammarWasmPath("tree-sitter-tsx.wasm"),
-      );
+      const tsx = await Language.load(grammarWasmPath("tree-sitter-tsx.wasm"));
       const parser = new Parser();
       return { parser, typescript, tsx };
     })();
@@ -74,8 +65,8 @@ function moduleSpecifierFromStringNode(stringNode: {
   return unquoteModuleSpecifier(stringNode.text);
 }
 
-export function extractImports(tree: Tree): RawImportStatement[] {
-  const imports: RawImportStatement[] = [];
+export function extractImportSpecifiers(tree: Tree): string[] {
+  const imports: string[] = [];
   const cursor = tree.walk();
 
   const visit = (): void => {
@@ -84,13 +75,7 @@ export function extractImports(tree: Tree): RawImportStatement[] {
     if (node.type === "import_statement") {
       const sourceNode = node.childForFieldName("source");
       if (sourceNode) {
-        imports.push({
-          source: moduleSpecifierFromStringNode(sourceNode),
-          startIndex: node.startIndex,
-          endIndex: node.endIndex,
-          startPosition: node.startPosition,
-          endPosition: node.endPosition,
-        });
+        imports.push(moduleSpecifierFromStringNode(sourceNode));
       }
     }
 
@@ -106,10 +91,10 @@ export function extractImports(tree: Tree): RawImportStatement[] {
   return imports;
 }
 
-export async function parseImports(
+export async function parseImportSpecifiers(
   filePath: string,
   source: string,
-): Promise<RawImportStatement[]> {
+): Promise<string[]> {
   const { parser, typescript, tsx } = await getParserSession();
   parser.setLanguage(filePath.endsWith(".tsx") ? tsx : typescript);
   const tree = parser.parse(source);
@@ -117,5 +102,7 @@ export async function parseImports(
     return [];
   }
 
-  return extractImports(tree);
+  const imports = extractImportSpecifiers(tree);
+  tree.delete();
+  return imports;
 }

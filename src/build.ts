@@ -1,33 +1,47 @@
 import { readdir, readFile, rm } from "node:fs/promises";
 import { dirname, extname, join, relative, resolve } from "node:path";
+import { loadConfig } from "./config.js";
 import { runPluginGeneration } from "./context.js";
 import type { UserConfig } from "./config.js";
 import type { Plugin } from "./plugin.js";
-import {
-  parseImports,
-  type ImportStatement,
-  type RawImportStatement,
-} from "./parse-imports.js";
+import { parseImportSpecifiers, type Import } from "./parse-imports.js";
 
 const SOURCE_EXTENSIONS = new Set([".ts", ".tsx"]);
 
-function resolveImportPath(importerPath: string, specifier: string): string {
+export function getProjectPaths(configPath: string, config: UserConfig) {
+  const projectRoot = dirname(resolve(configPath));
+  return {
+    projectRoot,
+    sourceDir: resolve(projectRoot, config.sourceDir),
+    shadowDir: resolve(projectRoot, config.shadowDir),
+  };
+}
+
+export function resolveImportPath(
+  importerPath: string,
+  specifier: string,
+): string {
   return relative(".", resolve(dirname(importerPath), specifier));
 }
 
-function resolveImports(
+export function resolveImports(
   importerPath: string,
-  imports: RawImportStatement[],
-): ImportStatement[] {
-  return imports.map((imp) => ({
-    ...imp,
-    resolvedPath: resolveImportPath(importerPath, imp.source),
+  specifiers: string[],
+): Import[] {
+  return specifiers.map((source) => ({
+    source,
+    resolvedPath: resolveImportPath(importerPath, source),
   }));
+}
+
+export interface AssetImport {
+  import: Import;
+  importer: string;
 }
 
 export interface ParsedSourceFile {
   path: string;
-  imports: ImportStatement[];
+  imports: Import[];
 }
 
 export interface BuildResult {
@@ -59,11 +73,15 @@ async function walkSourceFiles(
   return files;
 }
 
-function isRelativeImport(specifier: string): boolean {
+export function isRelativeImport(specifier: string): boolean {
   return specifier.startsWith(".");
 }
 
-async function findMatchingPlugin(
+export function isSourceFile(path: string): boolean {
+  return SOURCE_EXTENSIONS.has(extname(path));
+}
+
+export async function findMatchingPlugin(
   plugins: Plugin[],
   resolvedPath: string,
   sourceDir: string,
@@ -77,34 +95,43 @@ async function findMatchingPlugin(
   return undefined;
 }
 
-export async function build(
-  configPath: string,
+export async function generateAsset(
   config: UserConfig,
-): Promise<BuildResult> {
-  const projectRoot = dirname(resolve(configPath));
-  const sourceDir = resolve(projectRoot, config.sourceDir);
-  const shadowDir = resolve(projectRoot, config.shadowDir);
-  const sourceFiles = await walkSourceFiles(sourceDir);
-  const files: ParsedSourceFile[] = [];
-  const assetImports = new Map<
-    string,
-    { import: ImportStatement; importer: string }
-  >();
+  sourceDir: string,
+  shadowDir: string,
+  assetImport: AssetImport,
+): Promise<void> {
+  const plugin = await findMatchingPlugin(
+    config.plugins,
+    assetImport.import.resolvedPath,
+    sourceDir,
+  );
 
-  for (const absolutePath of sourceFiles) {
-    const importerPath = relative(sourceDir, absolutePath);
-    const source = await readFile(absolutePath, "utf8");
-    const imports = resolveImports(
-      importerPath,
-      await parseImports(absolutePath, source),
-    );
+  if (!plugin) {
+    return;
+  }
 
-    files.push({
-      path: importerPath,
-      imports,
-    });
+  const assetPath = resolve(sourceDir, assetImport.import.resolvedPath);
 
-    for (const imp of imports) {
+  await runPluginGeneration(plugin, assetPath, {
+    sourceDir,
+    shadowDir,
+    pluginName: plugin.name,
+    import: {
+      source: assetImport.import.source,
+      resolvedPath: assetImport.import.resolvedPath,
+      importer: assetImport.importer,
+    },
+  });
+}
+
+function collectAssetImports(
+  files: ParsedSourceFile[],
+): Map<string, AssetImport> {
+  const assetImports = new Map<string, AssetImport>();
+
+  for (const file of files) {
+    for (const imp of file.imports) {
       if (!isRelativeImport(imp.source)) {
         continue;
       }
@@ -112,40 +139,44 @@ export async function build(
       if (!assetImports.has(imp.resolvedPath)) {
         assetImports.set(imp.resolvedPath, {
           import: imp,
-          importer: importerPath,
+          importer: file.path,
         });
       }
     }
   }
 
+  return assetImports;
+}
+
+export async function build(
+  configPath: string,
+  config: UserConfig,
+): Promise<BuildResult> {
+  const { sourceDir, shadowDir } = getProjectPaths(configPath, config);
+  const sourceFiles = await walkSourceFiles(sourceDir);
+  const files: ParsedSourceFile[] = [];
+
+  for (const absolutePath of sourceFiles) {
+    const importerPath = relative(sourceDir, absolutePath);
+    const source = await readFile(absolutePath, "utf8");
+    const imports = resolveImports(
+      importerPath,
+      await parseImportSpecifiers(absolutePath, source),
+    );
+
+    files.push({
+      path: importerPath,
+      imports,
+    });
+  }
+
+  const assetImports = collectAssetImports(files);
   const generated: string[] = [];
 
   await rm(shadowDir, { recursive: true, force: true });
 
-  for (const [resolvedPath, { import: imp, importer }] of assetImports) {
-    const plugin = await findMatchingPlugin(
-      config.plugins,
-      resolvedPath,
-      sourceDir,
-    );
-
-    if (!plugin) {
-      continue;
-    }
-
-    const assetPath = resolve(sourceDir, resolvedPath);
-
-    await runPluginGeneration(plugin, assetPath, {
-      sourceDir,
-      shadowDir,
-      pluginName: plugin.name,
-      import: {
-        source: imp.source,
-        resolvedPath: imp.resolvedPath,
-        importer,
-      },
-    });
-
+  for (const [resolvedPath, assetImport] of assetImports) {
+    await generateAsset(config, sourceDir, shadowDir, assetImport);
     generated.push(resolvedPath);
   }
 
@@ -155,4 +186,25 @@ export async function build(
     files,
     generated,
   };
+}
+
+export async function buildProject(configPath: string): Promise<BuildResult> {
+  const config = await loadConfig(configPath);
+  const result = await build(configPath, config);
+
+  console.log(
+    `build (${configPath}, ${config.plugins.length} plugins, ${result.files.length} files, ${result.generated.length} generated)`,
+  );
+
+  for (const file of result.files) {
+    for (const imp of file.imports) {
+      console.log(`  ${file.path}: ${imp.resolvedPath}`);
+    }
+  }
+
+  for (const assetPath of result.generated) {
+    console.log(`  generated ${assetPath}`);
+  }
+
+  return result;
 }
