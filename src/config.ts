@@ -7,6 +7,8 @@ import type { Plugin } from "./plugin.js";
 const SUPPORTED_EXTENSIONS = new Set([".ts", ".js", ".mjs"]);
 
 export interface UserConfig {
+  sourceDir: string;
+  shadowDir: string;
   plugins: Plugin[];
 }
 
@@ -18,6 +20,10 @@ function isUserConfig(value: unknown): value is UserConfig {
   return (
     typeof value === "object" &&
     value !== null &&
+    "sourceDir" in value &&
+    typeof (value as UserConfig).sourceDir === "string" &&
+    "shadowDir" in value &&
+    typeof (value as UserConfig).shadowDir === "string" &&
     "plugins" in value &&
     Array.isArray((value as UserConfig).plugins)
   );

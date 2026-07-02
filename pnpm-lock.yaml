@@ -221,6 +221,37 @@ importers:
         specifier: ^4.22.4
         version: 4.22.4
 
+  test/plugins/text-with-length:
+    dependencies:
+      custom-imports:
+        specifier: workspace:*
+        version: link:../../..
+    devDependencies:
+      '@types/node':
+        specifier: ^26.1.0
+        version: 26.1.0
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
+  test/project1:
+    dependencies:
+      '@test/text-with-length':
+        specifier: workspace:*
+        version: link:../plugins/text-with-length
+      custom-imports:
+        specifier: workspace:*
+        version: link:../..
+
+  test/project2:
+    dependencies:
+      '@test/text-with-length':
+        specifier: workspace:*
+        version: link:../plugins/text-with-length
+      custom-imports:
+        specifier: workspace:*
+        version: link:../..
+
 packages:
 
   '@esbuild/aix-ppc64@0.28.1':

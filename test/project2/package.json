@@ -1,0 +1,10 @@
+{
+  "name": "@test/project2",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "custom-imports": "workspace:*",
+    "@test/text-with-length": "workspace:*"
+  }
+}

@@ -11,6 +11,8 @@ const DEFAULT_CONFIG_PATH = "custom-imports.config.ts";
 const EMPTY_CONFIG = `import { defineConfig } from "custom-imports";
 
 export default defineConfig({
+    sourceDir: "src",
+    shadowDir: ".shadow",
     plugins: [],
 });
 `;
