@@ -5,5 +5,5 @@ import logo from "./assets/logo.svg";
 import icon from "./assets/icon.png";
 
 export function main(): void {
-  console.log(greeting.content, banner.length, sidebar.content, logo, icon);
+    console.log(greeting.content, banner.length, sidebar.content, logo, icon);
 }

@@ -5,14 +5,42 @@ export interface Writer {
 
 export interface Context {
   readonly path: string;
+  readonly sourceDir: string;
   readonly jsFile: Writer;
   readonly dtsFile: Writer;
-  newAssetFile(relativePath: string): Writer;
-  error(e: string): void;
+  newAssetFile(relativePath: string): Promise<Writer>;
+  error(message: string): never;
   done(): Promise<void>;
 }
 
 export interface Plugin {
-  matches(path: string): boolean | Promise<boolean>;
-  generate(ctx: Context): Promise<any>;
+  readonly name: string;
+  matches(path: string, sourceDir?: string): boolean | Promise<boolean>;
+  generate(ctx: Context): Promise<unknown>;
+}
+
+export interface PluginErrorDetails {
+  pluginName: string;
+  importer: string;
+  source: string;
+  resolvedPath: string;
+  kind: "plugin" | "internal";
+}
+
+export class PluginError extends Error {
+  readonly pluginName: string;
+  readonly importer: string;
+  readonly source: string;
+  readonly resolvedPath: string;
+  readonly kind: "plugin" | "internal";
+
+  constructor(message: string, details: PluginErrorDetails) {
+    super(message);
+    this.name = "PluginError";
+    this.pluginName = details.pluginName;
+    this.importer = details.importer;
+    this.source = details.source;
+    this.resolvedPath = details.resolvedPath;
+    this.kind = details.kind;
+  }
 }

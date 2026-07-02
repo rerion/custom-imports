@@ -3,6 +3,8 @@ import type { Plugin } from "custom-imports";
 
 export function textWithLength(): Plugin {
   return {
+    name: "text-with-length",
+
     matches(path) {
       return path.endsWith(".txt");
     },

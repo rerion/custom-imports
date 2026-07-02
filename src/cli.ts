@@ -85,13 +85,17 @@ async function runBuild(configPath: string): Promise<void> {
   const result = await build(configPath, config);
 
   console.log(
-    `build (${configPath}, ${config.plugins.length} plugins, ${result.files.length} files)`,
+    `build (${configPath}, ${config.plugins.length} plugins, ${result.files.length} files, ${result.generated.length} generated)`,
   );
 
   for (const file of result.files) {
     for (const imp of file.imports) {
       console.log(`  ${file.path}: ${imp.resolvedPath}`);
     }
+  }
+
+  for (const assetPath of result.generated) {
+    console.log(`  generated ${assetPath}`);
   }
 }
 

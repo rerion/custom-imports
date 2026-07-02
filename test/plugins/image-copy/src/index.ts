@@ -14,13 +14,15 @@ const IMAGE_EXTENSIONS = [
 
 export function imageCopy(): Plugin {
   return {
+    name: "image-copy",
+
     matches(path) {
       return IMAGE_EXTENSIONS.some((extension) => path.endsWith(extension));
     },
 
     async generate(ctx) {
       const data = await readFile(ctx.path);
-      const asset = ctx.newAssetFile(basename(ctx.path));
+      const asset = await ctx.newAssetFile(basename(ctx.path));
       await asset.write(data);
       await ctx.jsFile.write(
         `export default ${JSON.stringify(asset.path)};\n`,
