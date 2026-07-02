@@ -1,7 +1,8 @@
 packages:
   - test/plugins/*
-  - test/project1
-  - test/project2
+  - test/project
 
 allowBuilds:
   esbuild: true
+  tree-sitter-javascript: true
+  tree-sitter-typescript: true

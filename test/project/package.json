@@ -1,10 +1,11 @@
 {
-  "name": "@test/project1",
+  "name": "@test/project",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "dependencies": {
     "custom-imports": "workspace:*",
+    "@test/image-copy": "workspace:*",
     "@test/text-with-length": "workspace:*"
   }
 }

@@ -1,4 +1,5 @@
 export interface Writer {
+  readonly path: string;
   write(chunk: Uint8Array | string): Promise<void>;
 }
 

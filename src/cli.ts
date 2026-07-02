@@ -5,6 +5,7 @@ import { constants } from "node:fs";
 import { resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { loadConfig } from "./config.js";
+import { build } from "./build.js";
 
 const DEFAULT_CONFIG_PATH = "custom-imports.config.ts";
 
@@ -81,7 +82,17 @@ async function initConfig(configPath: string): Promise<void> {
 
 async function runBuild(configPath: string): Promise<void> {
   const config = await loadConfig(configPath);
-  console.log(`build (${configPath}, ${config.plugins.length} plugins)`);
+  const result = await build(configPath, config);
+
+  console.log(
+    `build (${configPath}, ${config.plugins.length} plugins, ${result.files.length} files)`,
+  );
+
+  for (const file of result.files) {
+    for (const imp of file.imports) {
+      console.log(`  ${file.path}: ${imp.resolvedPath}`);
+    }
+  }
 }
 
 async function runWatch(configPath: string): Promise<void> {
