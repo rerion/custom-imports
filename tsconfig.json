@@ -22,7 +22,6 @@
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
 
-    "esModuleInterop": false,
     "skipLibCheck": true,
 
     "resolveJsonModule": true

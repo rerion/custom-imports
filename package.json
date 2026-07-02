@@ -2,8 +2,21 @@
   "name": "custom-imports",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "main": "./dist/index.js",
+  "bin": {
+    "custom-imports": "./dist/cli.js"
+  },
   "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/cli.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -16,12 +29,12 @@
       "onFail": "download"
     }
   },
-  "type": "module",
   "dependencies": {
-    "ts-morph": "^28.0.0"
+    "ts-morph": "^28.0.0",
+    "typescript": "^6.0.3"
   },
   "devDependencies": {
     "@types/node": "^26.1.0",
-    "typescript": "^6.0.3"
+    "tsx": "^4.22.4"
   }
 }
