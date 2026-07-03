@@ -233,43 +233,52 @@ importers:
         specifier: ^3.2.4
         version: 3.2.6(@types/node@26.1.0)(tsx@4.22.4)
 
-  test/plugins/image-copy:
+  tests/integration/fixtures/minimal/input:
     dependencies:
+      '@test/text-with-length':
+        specifier: workspace:*
+        version: link:../../../../test-plugins/text-with-length
       custom-imports:
         specifier: workspace:*
-        version: link:../../..
-    devDependencies:
-      '@types/node':
-        specifier: ^26.1.0
-        version: 26.1.0
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
+        version: link:../../../../..
 
-  test/plugins/text-with-length:
-    dependencies:
-      custom-imports:
-        specifier: workspace:*
-        version: link:../../..
-    devDependencies:
-      '@types/node':
-        specifier: ^26.1.0
-        version: 26.1.0
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-
-  test/project:
+  tests/integration/fixtures/project/input:
     dependencies:
       '@test/image-copy':
         specifier: workspace:*
-        version: link:../plugins/image-copy
+        version: link:../../../../test-plugins/image-copy
       '@test/text-with-length':
         specifier: workspace:*
-        version: link:../plugins/text-with-length
+        version: link:../../../../test-plugins/text-with-length
       custom-imports:
         specifier: workspace:*
-        version: link:../..
+        version: link:../../../../..
+
+  tests/test-plugins/image-copy:
+    dependencies:
+      custom-imports:
+        specifier: workspace:*
+        version: link:../../..
+    devDependencies:
+      '@types/node':
+        specifier: ^26.1.0
+        version: 26.1.0
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
+  tests/test-plugins/text-with-length:
+    dependencies:
+      custom-imports:
+        specifier: workspace:*
+        version: link:../../..
+    devDependencies:
+      '@types/node':
+        specifier: ^26.1.0
+        version: 26.1.0
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
 
 packages:
 

@@ -17,8 +17,13 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/cli.ts",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "test": "pnpm build && pnpm build:test-plugins && vitest run",
+    "test:unit": "vitest run --project unit",
+    "test:integration": "pnpm build && pnpm build:test-plugins && vitest run --project integration",
+    "test:integration:update": "pnpm build && pnpm build:test-plugins && UPDATE_EXPECTED=1 vitest run --project integration",
+    "test:integration:cleanup": "tsx tests/integration/cleanup-fixtures.ts",
+    "test:watch": "vitest",
+    "build:test-plugins": "pnpm -r --filter '@test/*' build"
   },
   "keywords": [],
   "author": "",

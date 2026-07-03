@@ -1,6 +1,6 @@
 packages:
-  - test/plugins/*
-  - test/project
+  - tests/test-plugins/*
+  - tests/integration/fixtures/*/input
 
 allowBuilds:
   esbuild: true
