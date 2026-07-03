@@ -8,17 +8,15 @@ import {
 } from "./build.js";
 import { shadowPaths } from "./shadow.js";
 
-export interface ResolveShadowImportOptions {
-  source: string;
-  importer: string | undefined;
-  sourceDir: string;
-  shadowDir: string;
-  esm: boolean;
-  targetKind: (path: string) => Promise<TargetKind>;
-}
-
-export async function resolveShadowImport(
-  options: ResolveShadowImportOptions,
+export async function resolveShadowModulePath(
+  options: {
+    source: string;
+    importer: string | undefined;
+    sourceDir: string;
+    shadowDir: string;
+    esm: boolean;
+    targetKind: (path: string) => Promise<TargetKind>;
+  },
 ): Promise<string | null> {
   const { source, importer, sourceDir, shadowDir, esm, targetKind } = options;
 

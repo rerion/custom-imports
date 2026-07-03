@@ -15,7 +15,7 @@ import type { UserConfig } from "./config.js";
 import { loadConfig } from "./config.js";
 import { ImportTracker } from "./import-tracker.js";
 import { parseImportSpecifiers, type Import } from "./parse-imports.js";
-import { resolveShadowImport } from "./resolve-import.js";
+import { resolveShadowModulePath } from "./resolve-import.js";
 import { removeAssetShadow } from "./shadow.js";
 
 export type { TargetKind } from "./build.js";
@@ -204,7 +204,7 @@ export async function createCustomImports(
       source: string,
       importer: string | undefined,
     ): Promise<string | null> {
-      return resolveShadowImport({
+      return resolveShadowModulePath({
         source,
         importer,
         sourceDir,

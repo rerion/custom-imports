@@ -129,6 +129,3 @@ export function customImports(config: UserConfig): Plugin {
     },
   };
 }
-
-export { resolveShadowImport } from "./resolve.js";
-export type { ResolveShadowImportOptions } from "./resolve.js";

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TargetKind } from "custom-imports";
-import { resolveShadowImport } from "../../src/resolve-import.js";
+import { resolveShadowModulePath } from "../../src/resolve-import.js";
 
 function createOptions(options: {
   esm?: boolean;
@@ -17,10 +17,10 @@ function createOptions(options: {
   };
 }
 
-describe("resolveShadowImport", () => {
+describe("resolveShadowModulePath", () => {
   it("resolves relative asset imports to shadow modules", async () => {
     await expect(
-      resolveShadowImport({
+      resolveShadowModulePath({
         source: "./message.txt",
         importer: "/project/src/main.ts",
         ...createOptions(),
@@ -30,7 +30,7 @@ describe("resolveShadowImport", () => {
 
   it("resolves nested importers", async () => {
     await expect(
-      resolveShadowImport({
+      resolveShadowModulePath({
         source: "./note.txt",
         importer: "/project/src/components/card.ts",
         ...createOptions(),
@@ -40,7 +40,7 @@ describe("resolveShadowImport", () => {
 
   it("strips ESM suffixes when esm is enabled", async () => {
     await expect(
-      resolveShadowImport({
+      resolveShadowModulePath({
         source: "./message.txt.js",
         importer: "/project/src/main.ts",
         ...createOptions({ esm: true }),
@@ -50,7 +50,7 @@ describe("resolveShadowImport", () => {
 
   it("returns null for imports outside sourceDir", async () => {
     await expect(
-      resolveShadowImport({
+      resolveShadowModulePath({
         source: "./message.txt",
         importer: "/project/lib/main.ts",
         ...createOptions(),
@@ -60,7 +60,7 @@ describe("resolveShadowImport", () => {
 
   it("returns null for unhandled asset types", async () => {
     await expect(
-      resolveShadowImport({
+      resolveShadowModulePath({
         source: "./logo.svg",
         importer: "/project/src/main.ts",
         ...createOptions(),
@@ -70,7 +70,7 @@ describe("resolveShadowImport", () => {
 
   it("returns null for bare specifiers", async () => {
     await expect(
-      resolveShadowImport({
+      resolveShadowModulePath({
         source: "react",
         importer: "/project/src/main.ts",
         ...createOptions(),
@@ -80,7 +80,7 @@ describe("resolveShadowImport", () => {
 
   it('returns null when targetKind is "assets"', async () => {
     await expect(
-      resolveShadowImport({
+      resolveShadowModulePath({
         source: "./message.txt",
         importer: "/project/src/main.ts",
         ...createOptions({
