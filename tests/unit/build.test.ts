@@ -26,7 +26,7 @@ const stubPlugin: Plugin = {
     return path.endsWith(".txt");
   },
   async generate(ctx) {
-    await ctx.jsFile!.write("export default {};\n");
+    await ctx.jsFile.write("export default {};\n");
     await ctx.dtsFile.write("declare const value: string;\n");
     await ctx.done();
   },
@@ -194,13 +194,13 @@ describe("findMatchingPlugin", () => {
 });
 
 describe("resolveTargetKind", () => {
-  it('returns "assets" when assetsAndTypesOnly is set', async () => {
+  it('returns "assets" when emitsJs is false', async () => {
     await expect(
       resolveTargetKind(
         [
           {
             name: "types-only",
-            assetsAndTypesOnly: true,
+            emitsJs: false,
             matches: () => true,
             generate: async () => {},
           },

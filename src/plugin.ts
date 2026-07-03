@@ -3,23 +3,35 @@ export interface Writer {
   write(chunk: Uint8Array | string): Promise<void>;
 }
 
-export interface Context {
+export interface PluginOptions {
+  emitsJs: boolean;
+}
+
+type DefaultPluginOptions = { emitsJs: true };
+
+export interface ContextBase {
   readonly path: string;
   readonly sourceDir: string;
-  readonly jsFile?: Writer;
   readonly dtsFile: Writer;
   newAssetFile(path: string): Promise<Writer>;
   error(message: string): never;
   done(): Promise<void>;
 }
 
-export interface Plugin {
+export type Context<Opts extends PluginOptions = DefaultPluginOptions> =
+  Opts["emitsJs"] extends false
+    ? ContextBase
+    : ContextBase & { readonly jsFile: Writer };
+
+export interface Plugin<Opts extends PluginOptions = DefaultPluginOptions> {
   readonly name: string;
-  /** When true, generate `.d.ts` and sidecar assets only — no shadow `.js` module. */
-  readonly assetsAndTypesOnly?: boolean;
+  /** When false, generate `.d.ts` and sidecar assets only — no shadow `.js` module. Default true. */
+  readonly emitsJs?: Opts["emitsJs"];
   matches(path: string, sourceDir?: string): boolean | Promise<boolean>;
-  generate(ctx: Context): Promise<unknown>;
+  generate(ctx: Context<Opts>): Promise<unknown>;
 }
+
+export type AnyPlugin = Plugin<{ emitsJs: true }> | Plugin<{ emitsJs: false }>;
 
 export interface PluginErrorDetails {
   pluginName: string;

@@ -3,7 +3,7 @@ import { dirname, extname, join, relative, resolve } from "node:path";
 import { loadConfig } from "./config.js";
 import { runPluginGeneration } from "./context.js";
 import type { UserConfig } from "./config.js";
-import type { Plugin } from "./plugin.js";
+import type { AnyPlugin } from "./plugin.js";
 import { parseImportSpecifiers, type Import } from "./parse-imports.js";
 
 const SOURCE_EXTENSIONS = new Set([".ts", ".tsx"]);
@@ -100,10 +100,10 @@ export function isSourceFile(path: string): boolean {
 }
 
 export async function findMatchingPlugin(
-  plugins: Plugin[],
+  plugins: AnyPlugin[],
   resolvedPath: string,
   sourceDir: string,
-): Promise<Plugin | undefined> {
+): Promise<AnyPlugin | undefined> {
   for (const plugin of plugins) {
     if (await plugin.matches(resolvedPath, sourceDir)) {
       return plugin;
@@ -113,14 +113,14 @@ export async function findMatchingPlugin(
   return undefined;
 }
 
-export function pluginEmitsJs(plugin: Plugin): boolean {
-  return !plugin.assetsAndTypesOnly;
+export function pluginEmitsJs(plugin: AnyPlugin): boolean {
+  return plugin.emitsJs !== false;
 }
 
 export type TargetKind = "none" | "assets" | "js";
 
 export async function resolveTargetKind(
-  plugins: Plugin[],
+  plugins: AnyPlugin[],
   targetPath: string,
   sourceDir: string,
 ): Promise<TargetKind> {
@@ -129,7 +129,7 @@ export async function resolveTargetKind(
     return "none";
   }
 
-  if (plugin.assetsAndTypesOnly) {
+  if (plugin.emitsJs === false) {
     return "assets";
   }
 

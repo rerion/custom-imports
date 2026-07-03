@@ -25,20 +25,20 @@ describe("createContext", () => {
     const [ctx] = await createContext(projectPath("src/note.txt"), contextOptions);
     const paths = shadowPaths(contextOptions.shadowDir, "note.txt");
 
-    expect(ctx.jsFile?.path).toBe(paths.jsPath);
+    expect(ctx.jsFile.path).toBe(paths.jsPath);
     expect(ctx.dtsFile.path).toBe(paths.dtsPath);
   });
 
-  it("omits the js writer in assets-and-types-only mode", async () => {
+  it("omits the js writer when emitsJs is false", async () => {
     seed({ "src/note.txt": "hello" });
 
-    const [ctx] = await createContext(projectPath("src/note.txt"), {
+    const [ctx] = await createContext<false>(projectPath("src/note.txt"), {
       ...contextOptions,
-      assetsAndTypesOnly: true,
+      emitsJs: false,
     });
     const paths = shadowPaths(contextOptions.shadowDir, "note.txt");
 
-    expect(ctx.jsFile).toBeUndefined();
+    expect((ctx as Context).jsFile).toBeUndefined();
     expect(ctx.dtsFile.path).toBe(paths.dtsPath);
   });
 
@@ -201,7 +201,7 @@ describe("runPluginGeneration", () => {
     name: "success",
     matches: () => true,
     async generate(ctx: Context) {
-      await ctx.jsFile!.write("export default {};\n");
+      await ctx.jsFile.write("export default {};\n");
       await ctx.done();
     },
   };

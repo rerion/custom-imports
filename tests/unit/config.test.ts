@@ -1,7 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import {
-    defineConfig,
     loadConfig,
     validateUserConfig,
 } from "../../src/config.js";
@@ -10,13 +9,6 @@ import { projectPath, seed } from "../helpers/project.js";
 
 const emptyPlugins = { sourceDir: "src", shadowDir: ".shadow", plugins: [] };
 const configPath = projectPath("custom-imports.config.ts");
-
-describe("defineConfig", () => {
-    it("returns the config object unchanged", () => {
-        const config = defineConfig(emptyPlugins);
-        expect(config).toBe(emptyPlugins);
-    });
-});
 
 describe("validateUserConfig", () => {
     it("accepts a valid config", () => {

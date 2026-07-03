@@ -2,19 +2,15 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import ts from "typescript";
 import { importDefaultExport } from "./import-default-export.js";
-import type { Plugin } from "./plugin.js";
+import type { AnyPlugin } from "./plugin.js";
 
 const SUPPORTED_EXTENSIONS = new Set([".ts", ".mts", ".js", ".mjs"]);
 
 export interface UserConfig {
     sourceDir: string;
     shadowDir: string;
-    plugins: Plugin[];
+    plugins: AnyPlugin[];
     esm?: boolean;
-}
-
-export function defineConfig(config: UserConfig): UserConfig {
-    return config;
 }
 
 function describeValue(value: unknown): string {

@@ -27,14 +27,14 @@ export function greet(): string {
 
 ```ts
 // custom-imports.config.ts
-import { defineConfig } from "custom-imports";
+import type { UserConfig } from "custom-imports";
 import { textWithLength } from "./plugins/text-with-length.js";
 
-export default defineConfig({
+export default {
   sourceDir: "src",
   shadowDir: ".shadow",
   plugins: [textWithLength()],
-});
+} satisfies UserConfig;
 ```
 
 **3. Build shadow output**
@@ -78,15 +78,15 @@ If these do not match your config, imports will not type-check and module resolu
 Use `createCustomImports` to drive shadow generation from your own build tool, test runner, or editor integration:
 
 ```ts
-import { createCustomImports, defineConfig } from "custom-imports";
+import { createCustomImports, type UserConfig } from "custom-imports";
 
 const api = await createCustomImports({
   projectRoot: process.cwd(),
-  config: defineConfig({
+  config: {
     sourceDir: "src",
     shadowDir: ".shadow",
     plugins: [textWithLength()],
-  }),
+  } satisfies UserConfig,
 });
 ```
 
@@ -139,19 +139,17 @@ Install `@custom-imports/vite` and pass your custom-imports config inline in `vi
 ```ts
 // vite.config.ts
 import { defineConfig as defineViteConfig } from "vite";
-import { defineConfig } from "custom-imports";
+import type { UserConfig } from "custom-imports";
 import { customImports } from "@custom-imports/vite";
 import { textWithLength } from "./plugins/text-with-length.js";
 
 export default defineViteConfig({
   plugins: [
-    customImports(
-      defineConfig({
-        sourceDir: "src",
-        shadowDir: ".shadow",
-        plugins: [textWithLength()],
-      }),
-    ),
+    customImports({
+      sourceDir: "src",
+      shadowDir: ".shadow",
+      plugins: [textWithLength()],
+    } satisfies UserConfig),
   ],
 });
 ```
@@ -171,13 +169,13 @@ TypeScript still needs `rootDirs` (or equivalent) for type-checking outside Vite
 
 A plugin implements `matches(path)` and `generate(ctx)`. The context provides writers for the shadow `.js` and `.d.ts` files, `newAssetFile()` for sidecar assets, and `done()` when generation is complete.
 
-Set `assetsAndTypesOnly: true` on a plugin to emit only `.d.ts` files and sidecar assets — no shadow `.js` module. Use this for assets that Vite (or your bundler) should handle at runtime directly. The Vite plugin will not redirect imports for these plugins.
+Set `emitsJs: false` on a plugin to emit only `.d.ts` files and sidecar assets — no shadow `.js` module. Use this for assets that Vite (or your bundler) should handle at runtime directly. The Vite plugin will not redirect imports for these plugins.
 
 ```ts
-export function rawTextTypes(): Plugin {
+export function rawTextTypes(): Plugin<{ emitsJs: false }> {
   return {
     name: "raw-text-types",
-    assetsAndTypesOnly: true,
+    emitsJs: false,
     matches(path) {
       return path.endsWith(".txt");
     },

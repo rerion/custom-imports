@@ -11,9 +11,9 @@ import { watchProject } from "./watch.js";
 
 const DEFAULT_CONFIG_PATH = "custom-imports.config.ts";
 
-export const EMPTY_CONFIG = `import { defineConfig } from "custom-imports";
+export const EMPTY_CONFIG = `import type { UserConfig } from "custom-imports";
 
-export default defineConfig({
+export default {
     // Directory scanned for TypeScript sources and relative asset imports.
     sourceDir: "src",
     // Directory where generated .js, .d.ts, and plugin asset files are written.
@@ -22,7 +22,7 @@ export default defineConfig({
     plugins: [],
     // When true, strip trailing .js/.mjs from resolved relative import paths.
     // esm: false,
-});
+} satisfies UserConfig;
 `;
 
 const HELP_TEXT = `Usage: custom-imports [options]

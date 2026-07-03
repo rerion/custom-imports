@@ -1,8 +1,8 @@
-import { defineConfig } from "custom-imports";
+import type { UserConfig } from "custom-imports";
 import { textWithLength } from "@test/text-with-length";
 
-export default defineConfig({
+export default {
   sourceDir: "src",
   shadowDir: ".shadow",
   plugins: [textWithLength()],
-});
+} satisfies UserConfig;

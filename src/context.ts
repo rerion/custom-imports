@@ -1,7 +1,7 @@
 import { access, appendFile, mkdir, writeFile } from "node:fs/promises";
 import { constants } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
-import type { Context, PluginErrorDetails, Writer } from "./plugin.js";
+import type { AnyPlugin, Context, PluginErrorDetails, Writer } from "./plugin.js";
 import { PluginError } from "./plugin.js";
 import { shadowPaths } from "./shadow.js";
 
@@ -15,7 +15,6 @@ export interface CreateContextOptions {
   sourceDir: string;
   shadowDir: string;
   pluginName: string;
-  assetsAndTypesOnly?: boolean;
   import: CreateContextImport;
 }
 
@@ -120,10 +119,13 @@ function resolveNewAssetPath(
   };
 }
 
-export async function createContext(
+type ContextEmitsJs<E extends boolean> = E extends false ? false : true;
+
+export async function createContext<E extends boolean = true>(
   assetPath: string,
-  options: CreateContextOptions,
-): Promise<[Context, Promise<void>]> {
+  options: CreateContextOptions &
+    (E extends false ? { emitsJs: false } : { emitsJs?: true }),
+): Promise<[Context<{ emitsJs: ContextEmitsJs<E> }>, Promise<void>]> {
   const details: PluginErrorDetails = {
     pluginName: options.pluginName,
     importer: options.import.importer,
@@ -141,9 +143,11 @@ export async function createContext(
   const dtsPath = `${shadowBase}.d.ts`;
   const assetOutputDir = dirname(shadowBase);
 
-  const jsFile = options.assetsAndTypesOnly
-    ? undefined
-    : await createAppendWriter(jsPath, details);
+  const emitsJs = options.emitsJs !== false;
+
+  const jsFile = emitsJs
+    ? await createAppendWriter(jsPath, details)
+    : undefined;
   const dtsFile = await createAppendWriter(dtsPath, details);
 
   let resolveDone!: () => void;
@@ -153,10 +157,9 @@ export async function createContext(
 
   let finished = false;
 
-  const context: Context = {
+  const shared = {
     path: assetPath,
     sourceDir: options.sourceDir,
-    ...(jsFile ? { jsFile } : {}),
     dtsFile,
 
     async newAssetFile(assetPath: string): Promise<Writer> {
@@ -185,21 +188,53 @@ export async function createContext(
     },
   };
 
+  if (emitsJs) {
+    const context = {
+      ...shared,
+      jsFile: jsFile!,
+    } as Context<{ emitsJs: ContextEmitsJs<E> }>;
+    return [context, doneBuildingPromise];
+  }
+
+  const context = shared as Context<{ emitsJs: ContextEmitsJs<E> }>;
   return [context, doneBuildingPromise];
 }
 
 export async function runPluginGeneration(
-  plugin: {
-    name: string;
-    assetsAndTypesOnly?: boolean;
-    generate(ctx: Context): Promise<unknown>;
-  },
+  plugin: AnyPlugin,
   assetPath: string,
   options: CreateContextOptions,
 ): Promise<void> {
+  if (plugin.emitsJs === false) {
+    const [context, doneBuildingPromise] = await createContext<false>(assetPath, {
+      ...options,
+      emitsJs: false,
+    });
+
+    try {
+      await plugin.generate(context);
+      await doneBuildingPromise;
+    } catch (error: unknown) {
+      if (error instanceof PluginError) {
+        throw error;
+      }
+
+      const message = error instanceof Error ? error.message : String(error);
+      throw new PluginError(message, {
+        pluginName: options.pluginName,
+        importer: options.import.importer,
+        source: options.import.source,
+        resolvedPath: options.import.resolvedPath,
+        kind: "internal",
+      });
+    }
+
+    return;
+  }
+
   const [context, doneBuildingPromise] = await createContext(assetPath, {
     ...options,
-    assetsAndTypesOnly: plugin.assetsAndTypesOnly ?? false,
+    emitsJs: true,
   });
 
   try {

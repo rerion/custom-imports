@@ -12,7 +12,7 @@ const stubPlugin: Plugin = {
     return path.endsWith(".txt");
   },
   async generate(ctx) {
-    await ctx.jsFile!.write("export default {};\n");
+    await ctx.jsFile.write("export default {};\n");
     await ctx.dtsFile.write("declare const value: string;\n");
     await ctx.done();
   },
@@ -69,10 +69,10 @@ describe("createCustomImports", () => {
     await expect(api.targetKind("logo.svg")).resolves.toBe("none");
   });
 
-  it('targetKind is "assets" for assets-and-types-only plugins', async () => {
-    const typesOnlyPlugin: Plugin = {
+  it('targetKind is "assets" when emitsJs is false', async () => {
+    const typesOnlyPlugin: Plugin<{ emitsJs: false }> = {
       name: "types-only",
-      assetsAndTypesOnly: true,
+      emitsJs: false,
       matches(path) {
         return path.endsWith(".raw");
       },
