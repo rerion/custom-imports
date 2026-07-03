@@ -2,6 +2,9 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
     test: {
+        sequence: {
+            concurrent: false,
+        },
         projects: [
             {
                 test: {
@@ -13,9 +16,16 @@ export default defineConfig({
             },
             {
                 test: {
-                    name: "integration",
+                    name: "build-e2e",
                     environment: "node",
-                    include: ["tests/integration/**/*.test.ts"],
+                    include: ["tests/build-e2e/**/*.test.ts"],
+                },
+            },
+            {
+                test: {
+                    name: "watch-e2e",
+                    environment: "node",
+                    include: ["tests/watch-e2e/**/*.test.ts"],
                 },
             },
         ],

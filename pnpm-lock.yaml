@@ -233,7 +233,7 @@ importers:
         specifier: ^3.2.4
         version: 3.2.6(@types/node@26.1.0)(tsx@4.22.4)
 
-  tests/integration/fixtures/minimal/input:
+  tests/build-e2e/fixtures/minimal/input:
     dependencies:
       '@test/text-with-length':
         specifier: workspace:*
@@ -242,7 +242,7 @@ importers:
         specifier: workspace:*
         version: link:../../../../..
 
-  tests/integration/fixtures/project/input:
+  tests/build-e2e/fixtures/project/input:
     dependencies:
       '@test/image-copy':
         specifier: workspace:*

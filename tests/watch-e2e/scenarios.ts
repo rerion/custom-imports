@@ -1,0 +1,92 @@
+import { readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import type { WatchScenario } from "./runner.js";
+
+const MAIN_PATH = join("src", "main.ts");
+const GREETING_PATH = join("src", "greeting.txt");
+
+export function createScenarios(scenariosRoot: string): WatchScenario[] {
+    return [
+        {
+            name: "import deleted in source file",
+            outputDir: join(scenariosRoot, "import-deleted", "output"),
+            action: async (inputDir) => {
+                const mainPath = join(inputDir, MAIN_PATH);
+                const source = await readFile(mainPath, "utf8");
+                const next = source
+                    .replace(
+                        'import greeting from "./greeting.txt";\n',
+                        "",
+                    )
+                    .replace("greeting.content, ", "");
+
+                await writeFile(mainPath, next, "utf8");
+            },
+            updatePattern: /update main\.ts/,
+        },
+        {
+            name: "new import in source file",
+            outputDir: join(scenariosRoot, "import-added", "output"),
+            action: async (inputDir) => {
+                const extraPath = join(inputDir, "src", "assets", "extra.txt");
+                await writeFile(extraPath, "Extra imported copy\n", "utf8");
+
+                const mainPath = join(inputDir, MAIN_PATH);
+                const source = await readFile(mainPath, "utf8");
+                const next = source.replace(
+                    'import icon from "./assets/icon.png";\n',
+                    'import icon from "./assets/icon.png";\nimport extra from "./assets/extra.txt";\n',
+                ).replace(
+                    "logo, icon);",
+                    "logo, icon, extra.content);",
+                );
+
+                await writeFile(mainPath, next, "utf8");
+            },
+            updatePattern: /generated assets\/extra\.txt/,
+        },
+        {
+            name: "import url changed in source file",
+            outputDir: join(scenariosRoot, "import-changed", "output"),
+            action: async (inputDir) => {
+                const mainPath = join(inputDir, MAIN_PATH);
+                const source = await readFile(mainPath, "utf8");
+                const next = source
+                    .replace(
+                        'import greeting from "./greeting.txt";',
+                        'import readme from "./shared/readme.txt";',
+                    )
+                    .replace("greeting.content", "readme.content");
+
+                await writeFile(mainPath, next, "utf8");
+            },
+            updatePattern: /removed greeting\.txt/,
+        },
+        {
+            name: "asset changed",
+            outputDir: join(scenariosRoot, "asset-changed", "output"),
+            action: async (inputDir) => {
+                await writeFile(
+                    join(inputDir, GREETING_PATH),
+                    "Updated greeting content\n",
+                    "utf8",
+                );
+            },
+            updatePattern: /regenerated greeting\.txt/,
+        },
+        {
+            name: "unrelated edit",
+            outputDir: join(scenariosRoot, "unrelated-edit", "output"),
+            action: async (inputDir) => {
+                const mainPath = join(inputDir, MAIN_PATH);
+                const source = await readFile(mainPath, "utf8");
+                await writeFile(
+                    mainPath,
+                    `// formatting only\n${source}`,
+                    "utf8",
+                );
+            },
+            expectNoUpdate: true,
+        },
+    ];
+}

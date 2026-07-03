@@ -17,7 +17,7 @@ const fixtures = await discoverFixtures(fixturesRoot);
 const updateExpected = process.env.UPDATE_EXPECTED === "1";
 
 for (const fixture of fixtures) {
-    describe.concurrent(`build/${fixture.name}`, () => {
+    describe.concurrent(`build-e2e/${fixture.name}`, () => {
         afterEach(async () => {
             await cleanupFixtureInput(fixture.inputDir);
         });
