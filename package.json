@@ -16,8 +16,9 @@
   },
   "scripts": {
     "build": "tsc",
+    "build:packages": "pnpm -r --filter './packages/*' build",
     "dev": "tsx src/cli.ts",
-    "test": "pnpm build && pnpm build:test-plugins && vitest run",
+    "test": "pnpm build && pnpm build:packages && pnpm build:test-plugins && vitest run",
     "test:unit": "vitest run --project unit",
     "test:build-e2e": "pnpm build && pnpm build:test-plugins && vitest run --project build-e2e",
     "test:build-e2e:update": "pnpm build && pnpm build:test-plugins && UPDATE_EXPECTED=1 vitest run --project build-e2e",

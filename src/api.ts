@@ -1,41 +1,63 @@
 import { readFile, rm } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
-import type { UserConfig } from "./config.js";
 import {
-  findMatchingPlugin,
+  buildFromRoot,
   generateAsset,
   isRelativeImport,
   isSourceFile,
   resolveImports,
+  resolveTargetKind,
   walkSourceFiles,
   type AssetImport,
+  type TargetKind,
 } from "./build.js";
+import type { UserConfig } from "./config.js";
+import { loadConfig } from "./config.js";
+import { ImportTracker } from "./import-tracker.js";
 import { parseImportSpecifiers, type Import } from "./parse-imports.js";
 import { removeAssetShadow } from "./shadow.js";
 
-export interface CustomImportsOptions {
-  config: UserConfig;
-  projectRoot: string;
+export type { TargetKind } from "./build.js";
+
+export type CustomImportsOptions =
+  | { projectRoot: string; config: UserConfig }
+  | { projectRoot: string; configPath: string };
+
+export interface RegenerateTargetOptions {
+  /** Require the target to be in the import graph from a prior `build()`. Never builds on demand. */
+  requireTracked?: boolean;
 }
 
 export interface CustomImports {
   readonly sourceDir: string;
   readonly shadowDir: string;
+  readonly esm: boolean;
 
+  build(): Promise<void>;
   extractImports(sourcePath: string): Promise<Import[]>;
-  regenerateImport(targetPath: string): Promise<void>;
+  syncSource(sourcePath: string): Promise<boolean>;
+  syncSourceRemoved(sourcePath: string): Promise<boolean>;
+  regenerateTarget(
+    targetPath: string,
+    options?: RegenerateTargetOptions,
+  ): Promise<void>;
   cleanImport(targetPath: string): Promise<void>;
   cleanAll(): Promise<void>;
-  canHandle(targetPath: string): Promise<boolean>;
+  targetKind(targetPath: string): Promise<TargetKind>;
 }
 
-export function createCustomImports(
+export async function createCustomImports(
   options: CustomImportsOptions,
-): CustomImports {
-  const { config, projectRoot } = options;
+): Promise<CustomImports> {
+  const config =
+    "configPath" in options
+      ? await loadConfig(options.configPath)
+      : options.config;
+  const { projectRoot } = options;
   const sourceDir = resolve(projectRoot, config.sourceDir);
   const shadowDir = resolve(projectRoot, config.shadowDir);
   const esm = config.esm ?? false;
+  let tracker: ImportTracker | undefined;
 
   async function readSourceImports(sourcePath: string): Promise<Import[]> {
     if (!isSourceFile(sourcePath)) {
@@ -72,30 +94,91 @@ export function createCustomImports(
     return undefined;
   }
 
+  async function ensureTracker(): Promise<ImportTracker> {
+    if (!tracker) {
+      const buildResult = await buildFromRoot(projectRoot, config);
+      tracker = ImportTracker.fromBuildResult(
+        config,
+        sourceDir,
+        shadowDir,
+        buildResult,
+      );
+    }
+
+    return tracker;
+  }
+
+  function failIfRequired(requireTracked: boolean, message: string): void {
+    if (requireTracked) {
+      throw new Error(message);
+    }
+  }
+
   return {
     sourceDir,
     shadowDir,
+    esm,
+
+    async build(): Promise<void> {
+      const buildResult = await buildFromRoot(projectRoot, config);
+      tracker = ImportTracker.fromBuildResult(
+        config,
+        sourceDir,
+        shadowDir,
+        buildResult,
+      );
+    },
 
     async extractImports(sourcePath: string): Promise<Import[]> {
       return readSourceImports(sourcePath);
     },
 
-    async canHandle(targetPath: string): Promise<boolean> {
-      return (await findMatchingPlugin(config.plugins, targetPath, sourceDir)) !==
-        undefined;
+    async syncSource(sourcePath: string): Promise<boolean> {
+      const activeTracker = await ensureTracker();
+      const imports = await readSourceImports(sourcePath);
+      return activeTracker.sourceChanged(sourcePath, imports);
     },
 
-    async cleanImport(targetPath: string): Promise<void> {
-      await removeAssetShadow(shadowDir, targetPath);
+    async syncSourceRemoved(sourcePath: string): Promise<boolean> {
+      const activeTracker = await ensureTracker();
+      return activeTracker.sourceDeleted(sourcePath);
     },
 
-    async cleanAll(): Promise<void> {
-      await rm(shadowDir, { recursive: true, force: true });
-    },
+    async regenerateTarget(
+      targetPath: string,
+      options: RegenerateTargetOptions = {},
+    ): Promise<void> {
+      const requireTracked = options.requireTracked ?? false;
+      const kind = await resolveTargetKind(
+        config.plugins,
+        targetPath,
+        sourceDir,
+      );
 
-    async regenerateImport(targetPath: string): Promise<void> {
-      if (!(await findMatchingPlugin(config.plugins, targetPath, sourceDir))) {
+      if (kind === "none") {
+        failIfRequired(
+          requireTracked,
+          `No plugin handles import target: ${targetPath}`,
+        );
         return;
+      }
+
+      if (tracker?.isImportTarget(targetPath)) {
+        const changed = await tracker.importTargetChanged(targetPath);
+        if (requireTracked && !changed) {
+          throw new Error(`Import target is not tracked: ${targetPath}`);
+        }
+        return;
+      }
+
+      if (requireTracked) {
+        if (!tracker) {
+          throw new Error(
+            "Import graph is not initialized. Call build() first.",
+          );
+        }
+
+        throw new Error(`Import target is not tracked: ${targetPath}`);
       }
 
       await removeAssetShadow(shadowDir, targetPath);
@@ -106,6 +189,19 @@ export function createCustomImports(
       }
 
       await generateAsset(config, sourceDir, shadowDir, assetImport);
+    },
+
+    async targetKind(targetPath: string): Promise<TargetKind> {
+      return resolveTargetKind(config.plugins, targetPath, sourceDir);
+    },
+
+    async cleanImport(targetPath: string): Promise<void> {
+      await removeAssetShadow(shadowDir, targetPath);
+    },
+
+    async cleanAll(): Promise<void> {
+      await rm(shadowDir, { recursive: true, force: true });
+      tracker = undefined;
     },
   };
 }

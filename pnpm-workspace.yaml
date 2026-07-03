@@ -1,4 +1,5 @@
 packages:
+  - packages/*
   - tests/test-plugins/*
   - tests/build-e2e/fixtures/*/input
 

@@ -113,6 +113,29 @@ export async function findMatchingPlugin(
   return undefined;
 }
 
+export function pluginEmitsJs(plugin: Plugin): boolean {
+  return !plugin.assetsAndTypesOnly;
+}
+
+export type TargetKind = "none" | "assets" | "js";
+
+export async function resolveTargetKind(
+  plugins: Plugin[],
+  targetPath: string,
+  sourceDir: string,
+): Promise<TargetKind> {
+  const plugin = await findMatchingPlugin(plugins, targetPath, sourceDir);
+  if (!plugin) {
+    return "none";
+  }
+
+  if (plugin.assetsAndTypesOnly) {
+    return "assets";
+  }
+
+  return "js";
+}
+
 export async function generateAsset(
   config: UserConfig,
   sourceDir: string,
@@ -166,11 +189,12 @@ function collectAssetImports(
   return assetImports;
 }
 
-export async function build(
-  configPath: string,
+export async function buildFromRoot(
+  projectRoot: string,
   config: UserConfig,
 ): Promise<BuildResult> {
-  const { sourceDir, shadowDir } = getProjectPaths(configPath, config);
+  const sourceDir = resolve(projectRoot, config.sourceDir);
+  const shadowDir = resolve(projectRoot, config.shadowDir);
   const sourceFiles = await walkSourceFiles(sourceDir);
   const files: ParsedSourceFile[] = [];
 
@@ -205,6 +229,14 @@ export async function build(
     files,
     generated,
   };
+}
+
+export async function build(
+  configPath: string,
+  config: UserConfig,
+): Promise<BuildResult> {
+  const { projectRoot } = getProjectPaths(configPath, config);
+  return buildFromRoot(projectRoot, config);
 }
 
 export async function buildProject(configPath: string): Promise<BuildResult> {

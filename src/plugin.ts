@@ -6,7 +6,7 @@ export interface Writer {
 export interface Context {
   readonly path: string;
   readonly sourceDir: string;
-  readonly jsFile: Writer;
+  readonly jsFile?: Writer;
   readonly dtsFile: Writer;
   newAssetFile(path: string): Promise<Writer>;
   error(message: string): never;
@@ -15,6 +15,8 @@ export interface Context {
 
 export interface Plugin {
   readonly name: string;
+  /** When true, generate `.d.ts` and sidecar assets only — no shadow `.js` module. */
+  readonly assetsAndTypesOnly?: boolean;
   matches(path: string, sourceDir?: string): boolean | Promise<boolean>;
   generate(ctx: Context): Promise<unknown>;
 }

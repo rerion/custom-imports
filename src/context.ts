@@ -15,6 +15,7 @@ export interface CreateContextOptions {
   sourceDir: string;
   shadowDir: string;
   pluginName: string;
+  assetsAndTypesOnly?: boolean;
   import: CreateContextImport;
 }
 
@@ -140,7 +141,9 @@ export async function createContext(
   const dtsPath = `${shadowBase}.d.ts`;
   const assetOutputDir = dirname(shadowBase);
 
-  const jsFile = await createAppendWriter(jsPath, details);
+  const jsFile = options.assetsAndTypesOnly
+    ? undefined
+    : await createAppendWriter(jsPath, details);
   const dtsFile = await createAppendWriter(dtsPath, details);
 
   let resolveDone!: () => void;
@@ -153,7 +156,7 @@ export async function createContext(
   const context: Context = {
     path: assetPath,
     sourceDir: options.sourceDir,
-    jsFile,
+    ...(jsFile ? { jsFile } : {}),
     dtsFile,
 
     async newAssetFile(assetPath: string): Promise<Writer> {
@@ -186,11 +189,18 @@ export async function createContext(
 }
 
 export async function runPluginGeneration(
-  plugin: { name: string; generate(ctx: Context): Promise<unknown> },
+  plugin: {
+    name: string;
+    assetsAndTypesOnly?: boolean;
+    generate(ctx: Context): Promise<unknown>;
+  },
   assetPath: string,
   options: CreateContextOptions,
 ): Promise<void> {
-  const [context, doneBuildingPromise] = await createContext(assetPath, options);
+  const [context, doneBuildingPromise] = await createContext(assetPath, {
+    ...options,
+    assetsAndTypesOnly: plugin.assetsAndTypesOnly ?? false,
+  });
 
   try {
     await plugin.generate(context);

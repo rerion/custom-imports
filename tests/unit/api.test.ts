@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { createCustomImports } from "../../src/api.js";
 import type { Plugin } from "../../src/plugin.js";
 import { projectPath, seed } from "../helpers/project.js";
+import { UserConfig } from "../../src/config.js";
 
 const stubPlugin: Plugin = {
   name: "stub",
@@ -11,7 +12,7 @@ const stubPlugin: Plugin = {
     return path.endsWith(".txt");
   },
   async generate(ctx) {
-    await ctx.jsFile.write("export default {};\n");
+    await ctx.jsFile!.write("export default {};\n");
     await ctx.dtsFile.write("declare const value: string;\n");
     await ctx.done();
   },
@@ -21,7 +22,7 @@ const config = {
   sourceDir: "src",
   shadowDir: ".shadow",
   plugins: [stubPlugin],
-};
+} as UserConfig;
 
 async function exists(path: string): Promise<boolean> {
   try {
@@ -32,12 +33,18 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
+async function createApi(
+  overrides: Partial<typeof config> = {},
+) {
+  return createCustomImports({
+    config: { ...config, ...overrides },
+    projectRoot: projectPath(),
+  });
+}
+
 describe("createCustomImports", () => {
-  it("exposes resolved source and shadow directories", () => {
-    const api = createCustomImports({
-      config,
-      projectRoot: projectPath(),
-    });
+  it("exposes resolved source and shadow directories", async () => {
+    const api = await createApi();
 
     expect(api.sourceDir).toBe(projectPath("src"));
     expect(api.shadowDir).toBe(projectPath(".shadow"));
@@ -48,39 +55,56 @@ describe("createCustomImports", () => {
       "src/main.ts": 'import note from "./note.txt";\n',
     });
 
-    const api = createCustomImports({
-      config,
-      projectRoot: projectPath(),
-    });
+    const api = await createApi();
 
     await expect(api.extractImports("main.ts")).resolves.toEqual([
       { source: "./note.txt", resolvedPath: "note.txt" },
     ]);
   });
 
-  it("canHandle reports whether a plugin matches a target path", async () => {
-    const api = createCustomImports({
-      config,
+  it("targetKind describes what shadow output a target gets", async () => {
+    const api = await createApi();
+
+    await expect(api.targetKind("note.txt")).resolves.toBe("js");
+    await expect(api.targetKind("logo.svg")).resolves.toBe("none");
+  });
+
+  it('targetKind is "assets" for assets-and-types-only plugins', async () => {
+    const typesOnlyPlugin: Plugin = {
+      name: "types-only",
+      assetsAndTypesOnly: true,
+      matches(path) {
+        return path.endsWith(".raw");
+      },
+      async generate(ctx) {
+        await ctx.dtsFile.write("declare const value: string;\n");
+        await ctx.done();
+      },
+    };
+
+    const api = await createCustomImports({
+      config: {
+        sourceDir: "src",
+        shadowDir: ".shadow",
+        plugins: [typesOnlyPlugin],
+      },
       projectRoot: projectPath(),
     });
 
-    await expect(api.canHandle("note.txt")).resolves.toBe(true);
-    await expect(api.canHandle("logo.svg")).resolves.toBe(false);
+    await expect(api.targetKind("data.raw")).resolves.toBe("assets");
+    await expect(api.targetKind("note.txt")).resolves.toBe("none");
   });
 
-  it("regenerateImport cleans and generates shadow output", async () => {
+  it("regenerateTarget cleans and generates shadow output", async () => {
     seed({
       "src/main.ts": 'import note from "./note.txt";\n',
       "src/note.txt": "hello\n",
       ".shadow/note.txt.js": "stale\n",
     });
 
-    const api = createCustomImports({
-      config,
-      projectRoot: projectPath(),
-    });
+    const api = await createApi();
 
-    await api.regenerateImport("note.txt");
+    await api.regenerateTarget("note.txt");
 
     await expect(
       readFile(projectPath(".shadow/note.txt.js"), "utf8"),
@@ -93,10 +117,7 @@ describe("createCustomImports", () => {
       ".shadow/note.txt.d.ts": "dts\n",
     });
 
-    const api = createCustomImports({
-      config,
-      projectRoot: projectPath(),
-    });
+    const api = await createApi();
 
     await api.cleanImport("note.txt");
     await api.cleanImport("note.txt");
@@ -111,10 +132,7 @@ describe("createCustomImports", () => {
       ".shadow/note.txt.js": "js\n",
     });
 
-    const api = createCustomImports({
-      config,
-      projectRoot: projectPath(),
-    });
+    const api = await createApi();
 
     await api.cleanAll();
 
@@ -128,10 +146,7 @@ describe("extractImports", () => {
       "src/main.ts": 'import note from "./note.txt.js";\n',
     });
 
-    const api = createCustomImports({
-      config: { ...config, esm: true },
-      projectRoot: projectPath(),
-    });
+    const api = await createApi({ esm: true });
 
     await expect(api.extractImports("main.ts")).resolves.toEqual([
       { source: "./note.txt.js", resolvedPath: "note.txt" },
@@ -139,10 +154,7 @@ describe("extractImports", () => {
   });
 
   it("rejects non-TypeScript source paths", async () => {
-    const api = createCustomImports({
-      config,
-      projectRoot: projectPath(),
-    });
+    const api = await createApi();
 
     await expect(api.extractImports("note.txt")).rejects.toThrow(
       "Not a TypeScript source file",
@@ -158,10 +170,7 @@ describe("extractImports", () => {
       ].join("\n"),
     });
 
-    const api = createCustomImports({
-      config,
-      projectRoot: projectPath(),
-    });
+    const api = await createApi();
 
     await expect(api.extractImports("main.ts")).resolves.toEqual([
       { source: "./note.txt", resolvedPath: "note.txt" },
@@ -170,7 +179,51 @@ describe("extractImports", () => {
   });
 });
 
-describe("regenerateImport", () => {
+describe("regenerateTarget", () => {
+  it("throws when requireTracked and the target is not in the import graph", async () => {
+    seed({
+      "src/note.txt": "hello\n",
+    });
+
+    const api = await createApi();
+    await api.build();
+
+    await expect(
+      api.regenerateTarget("note.txt", { requireTracked: true }),
+    ).rejects.toThrow("Import target is not tracked: note.txt");
+  });
+
+  it("throws when requireTracked without a prior build", async () => {
+    seed({
+      "src/main.ts": 'import note from "./note.txt";\n',
+      "src/note.txt": "hello\n",
+    });
+
+    const api = await createApi();
+
+    await expect(
+      api.regenerateTarget("note.txt", { requireTracked: true }),
+    ).rejects.toThrow("Import graph is not initialized. Call build() first.");
+  });
+
+  it("regenerates shadow when requireTracked and the target is tracked", async () => {
+    seed({
+      "src/main.ts": 'import note from "./note.txt";\n',
+      "src/note.txt": "hello\n",
+      ".shadow/note.txt.js": "stale\n",
+    });
+
+    const api = await createApi();
+    await api.build();
+
+    seed({ "src/note.txt": "updated\n" });
+
+    await api.regenerateTarget("note.txt", { requireTracked: true });
+    await expect(
+      readFile(projectPath(".shadow/note.txt.js"), "utf8"),
+    ).resolves.toBe("export default {};\n");
+  });
+
   it("no-ops when no plugin handles the target", async () => {
     seed({
       "src/main.ts": 'import logo from "./logo.svg";\n',
@@ -178,16 +231,24 @@ describe("regenerateImport", () => {
       ".shadow/logo.svg.js": "stale\n",
     });
 
-    const api = createCustomImports({
-      config,
-      projectRoot: projectPath(),
-    });
+    const api = await createApi();
 
-    await api.regenerateImport("logo.svg");
+    await api.regenerateTarget("logo.svg");
 
     await expect(
       readFile(projectPath(".shadow/logo.svg.js"), "utf8"),
     ).resolves.toBe("stale\n");
+  });
+
+  it("throws when requireTracked and no plugin handles the target", async () => {
+    seed({ "src/main.ts": "// empty\n" });
+
+    const api = await createApi();
+    await api.build();
+
+    await expect(
+      api.regenerateTarget("logo.svg", { requireTracked: true }),
+    ).rejects.toThrow("No plugin handles import target: logo.svg");
   });
 
   it("throws when the target has no importer", async () => {
@@ -195,12 +256,9 @@ describe("regenerateImport", () => {
       "src/note.txt": "hello\n",
     });
 
-    const api = createCustomImports({
-      config,
-      projectRoot: projectPath(),
-    });
+    const api = await createApi();
 
-    await expect(api.regenerateImport("note.txt")).rejects.toThrow(
+    await expect(api.regenerateTarget("note.txt")).rejects.toThrow(
       "No importer found for import target: note.txt",
     );
   });
@@ -211,12 +269,9 @@ describe("regenerateImport", () => {
       "src/components/note.txt": "card copy\n",
     });
 
-    const api = createCustomImports({
-      config,
-      projectRoot: projectPath(),
-    });
+    const api = await createApi();
 
-    await api.regenerateImport("components/note.txt");
+    await api.regenerateTarget("components/note.txt");
 
     await expect(
       readFile(projectPath(".shadow/components/note.txt.js"), "utf8"),
@@ -234,10 +289,7 @@ describe("cleanImport", () => {
       ".shadow/assets/widgets.2.asset": "two\n",
     });
 
-    const api = createCustomImports({
-      config,
-      projectRoot: projectPath(),
-    });
+    const api = await createApi();
 
     await api.cleanImport("widgets.count");
 
@@ -255,14 +307,53 @@ describe("cleanImport", () => {
 
 describe("cleanAll", () => {
   it("is idempotent when the shadow directory is already missing", async () => {
-    const api = createCustomImports({
-      config,
-      projectRoot: projectPath(),
-    });
+    const api = await createApi();
 
     await api.cleanAll();
     await api.cleanAll();
 
     await expect(exists(projectPath(".shadow"))).resolves.toBe(false);
+  });
+});
+
+describe("build", () => {
+  it("generates shadow output for all imported assets", async () => {
+    seed({
+      "src/main.ts": 'import note from "./note.txt";\n',
+      "src/note.txt": "hello\n",
+    });
+
+    const api = await createApi();
+    await api.build();
+
+    await expect(
+      readFile(projectPath(".shadow/note.txt.js"), "utf8"),
+    ).resolves.toBe("export default {};\n");
+  });
+});
+
+describe("syncSource", () => {
+  it("generates shadow when a new import is added", async () => {
+    seed({
+      "src/main.ts": 'import note from "./note.txt";\n',
+      "src/note.txt": "hello\n",
+    });
+
+    const api = await createApi();
+    await api.build();
+
+    seed({
+      "src/main.ts": [
+        'import note from "./note.txt";',
+        'import banner from "./banner.txt";',
+        "",
+      ].join("\n"),
+      "src/banner.txt": "banner\n",
+    });
+
+    await expect(api.syncSource("main.ts")).resolves.toBe(true);
+    await expect(
+      readFile(projectPath(".shadow/banner.txt.js"), "utf8"),
+    ).resolves.toBe("export default {};\n");
   });
 });

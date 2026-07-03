@@ -1,0 +1,31 @@
+{
+  "name": "@custom-imports/vite",
+  "version": "1.0.0",
+  "description": "Vite plugin for custom-imports",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc"
+  },
+  "keywords": ["vite", "vite-plugin", "custom-imports"],
+  "license": "MIT",
+  "peerDependencies": {
+    "vite": "^5.0.0 || ^6.0.0 || ^7.0.0"
+  },
+  "dependencies": {
+    "custom-imports": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.0",
+    "custom-imports": "workspace:*",
+    "typescript": "^6.0.3",
+    "vite": "^7.3.6"
+  }
+}

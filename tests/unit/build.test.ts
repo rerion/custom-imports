@@ -10,6 +10,7 @@ import {
   getProjectPaths,
   isRelativeImport,
   isSourceFile,
+  resolveTargetKind,
   resolveImportPath,
   resolveImports,
   stripEsmImportSuffix,
@@ -25,7 +26,7 @@ const stubPlugin: Plugin = {
     return path.endsWith(".txt");
   },
   async generate(ctx) {
-    await ctx.jsFile.write("export default {};\n");
+    await ctx.jsFile!.write("export default {};\n");
     await ctx.dtsFile.write("declare const value: string;\n");
     await ctx.done();
   },
@@ -189,6 +190,37 @@ describe("findMatchingPlugin", () => {
     await expect(
       findMatchingPlugin([stubPlugin], "src/logo.svg", projectPath("src")),
     ).resolves.toBeUndefined();
+  });
+});
+
+describe("resolveTargetKind", () => {
+  it('returns "assets" when assetsAndTypesOnly is set', async () => {
+    await expect(
+      resolveTargetKind(
+        [
+          {
+            name: "types-only",
+            assetsAndTypesOnly: true,
+            matches: () => true,
+            generate: async () => {},
+          },
+        ],
+        "data.raw",
+        projectPath("src"),
+      ),
+    ).resolves.toBe("assets");
+  });
+
+  it('returns "js" by default', async () => {
+    await expect(
+      resolveTargetKind([stubPlugin], "note.txt", projectPath("src")),
+    ).resolves.toBe("js");
+  });
+
+  it('returns "none" when no plugin matches', async () => {
+    await expect(
+      resolveTargetKind([stubPlugin], "logo.svg", projectPath("src")),
+    ).resolves.toBe("none");
   });
 });
 
