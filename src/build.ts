@@ -69,7 +69,7 @@ export interface BuildResult {
   generated: string[];
 }
 
-async function walkSourceFiles(
+export async function walkSourceFiles(
   directory: string,
   files: string[] = [],
 ): Promise<string[]> {

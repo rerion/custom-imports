@@ -73,6 +73,44 @@ If these do not match your config, imports will not type-check and module resolu
 | `custom-imports --merge` | Copy shadow output into `sourceDir` |
 | `custom-imports --merge --into <dir>` | Copy source and shadow into `<dir>` without modifying `sourceDir` |
 
+## Programmatic usage
+
+Use `createCustomImports` to drive shadow generation from your own build tool, test runner, or editor integration. Import it from the `custom-imports` package:
+
+```ts
+import { createCustomImports, loadConfig } from "custom-imports";
+
+const config = await loadConfig("custom-imports.config.ts");
+const api = createCustomImports({ config, projectRoot: process.cwd() });
+```
+
+`sourceDir` and `shadowDir` on the returned object are absolute paths. All other path arguments are **relative to `sourceDir`** (for example `"main.ts"`, `"assets/logo.svg"`).
+
+| Method | Description |
+|--------|-------------|
+| `extractImports(sourcePath)` | Parse a TypeScript file and return its relative asset imports (`source` and `resolvedPath`) |
+| `canHandle(targetPath)` | Whether any configured plugin matches the asset path |
+| `regenerateImport(targetPath)` | Remove existing shadow output for the asset, then regenerate it from the current importer. No-op if no plugin handles the path; throws if no source file imports it |
+| `cleanImport(targetPath)` | Remove shadow `.js`, `.d.ts`, and sidecar files for one asset (idempotent) |
+| `cleanAll()` | Remove the entire `shadowDir` (idempotent) |
+
+```ts
+// List asset imports in one file
+const imports = await api.extractImports("main.ts");
+// [{ source: "./message.txt", resolvedPath: "message.txt" }, ...]
+
+// Regenerate shadow output for a single asset after it changes on disk
+if (await api.canHandle("message.txt")) {
+  await api.regenerateImport("message.txt");
+}
+
+// Tear down generated files
+await api.cleanImport("message.txt");
+await api.cleanAll();
+```
+
+Respects `esm: true` in config the same way the CLI does when resolving import paths.
+
 ## Config options
 
 | Option | Description |
