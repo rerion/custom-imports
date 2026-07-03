@@ -8,7 +8,7 @@ export interface Context {
   readonly sourceDir: string;
   readonly jsFile: Writer;
   readonly dtsFile: Writer;
-  newAssetFile(relativePath: string): Promise<Writer>;
+  newAssetFile(path: string): Promise<Writer>;
   error(message: string): never;
   done(): Promise<void>;
 }

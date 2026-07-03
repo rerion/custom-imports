@@ -1,6 +1,6 @@
 import { access } from "node:fs/promises";
 import { constants } from "node:fs";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { removeAssetShadow, shadowPaths } from "../../src/shadow.js";
 import { projectPath, seed } from "../helpers/project.js";
@@ -48,7 +48,7 @@ describe("removeAssetShadow", () => {
     const shadowDir = projectPath(".shadow");
     const resolvedPath = "logo.svg";
     const paths = shadowPaths(shadowDir, resolvedPath);
-    const copiedAsset = join(dirname(paths.shadowBase), "copy/logo.svg");
+    const copiedAsset = join(shadowDir, "copy/logo.svg");
 
     seed({
       [paths.jsPath.replace(`${projectPath()}/`, "")]: "js",

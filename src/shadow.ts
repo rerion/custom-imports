@@ -1,6 +1,6 @@
 import { access, readFile, rm } from "node:fs/promises";
 import { constants } from "node:fs";
-import { dirname, join } from "node:path";
+import { join, resolve } from "node:path";
 
 async function fileExists(path: string): Promise<boolean> {
   try {
@@ -25,11 +25,11 @@ export async function removeAssetShadow(
   shadowDir: string,
   resolvedPath: string,
 ): Promise<void> {
-  const { jsPath, dtsPath, assetsPath, shadowBase } = shadowPaths(
+  const { jsPath, dtsPath, assetsPath } = shadowPaths(
     shadowDir,
     resolvedPath,
   );
-  const assetOutputDir = dirname(shadowBase);
+  const shadowRoot = resolve(shadowDir);
 
   if (await fileExists(assetsPath)) {
     const contents = await readFile(assetsPath, "utf8");
@@ -40,7 +40,7 @@ export async function removeAssetShadow(
         continue;
       }
 
-      await rm(join(assetOutputDir, relativePath), { force: true });
+      await rm(join(shadowRoot, relativePath), { force: true });
     }
   }
 

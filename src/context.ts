@@ -1,6 +1,6 @@
 import { access, appendFile, mkdir, writeFile } from "node:fs/promises";
 import { constants } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import type { Context, PluginErrorDetails, Writer } from "./plugin.js";
 import { PluginError } from "./plugin.js";
 import { shadowPaths } from "./shadow.js";
@@ -70,6 +70,55 @@ async function appendAssetManifest(
   await writeFile(manifestPath, `${relativePath}\n`, { flag: "wx" });
 }
 
+function isInsideDirectory(root: string, target: string): boolean {
+  const resolvedRoot = resolve(root);
+  const resolvedTarget = resolve(target);
+
+  if (resolvedRoot === resolvedTarget) {
+    return true;
+  }
+
+  const rel = relative(resolvedRoot, resolvedTarget);
+  return rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel);
+}
+
+function resolveNewAssetPath(
+  assetPath: string,
+  shadowDir: string,
+  assetOutputDir: string,
+  details: PluginErrorDetails,
+): { filePath: string; manifestPath: string } {
+  const shadowRoot = resolve(shadowDir);
+  const resolvedAssetOutputDir = resolve(assetOutputDir);
+
+  let filePath: string;
+  if (assetPath.startsWith("/") || isAbsolute(assetPath)) {
+    const fromShadowRoot = assetPath.replace(/^[/\\]+/, "");
+    if (!fromShadowRoot) {
+      throw pluginError(`Asset path must not be empty: ${assetPath}`, {
+        ...details,
+        kind: "internal",
+      });
+    }
+
+    filePath = resolve(shadowRoot, fromShadowRoot);
+  } else {
+    filePath = resolve(resolvedAssetOutputDir, assetPath);
+  }
+
+  if (!isInsideDirectory(shadowRoot, filePath)) {
+    throw pluginError(`Asset path escapes shadow directory: ${assetPath}`, {
+      ...details,
+      kind: "internal",
+    });
+  }
+
+  return {
+    filePath,
+    manifestPath: relative(shadowRoot, filePath),
+  };
+}
+
 export async function createContext(
   assetPath: string,
   options: CreateContextOptions,
@@ -107,10 +156,15 @@ export async function createContext(
     jsFile,
     dtsFile,
 
-    async newAssetFile(relativePath: string): Promise<Writer> {
-      const assetFilePath = join(assetOutputDir, relativePath);
-      const writer = await createAppendWriter(assetFilePath, details);
-      await appendAssetManifest(assetsPath, relativePath, details);
+    async newAssetFile(assetPath: string): Promise<Writer> {
+      const { filePath, manifestPath } = resolveNewAssetPath(
+        assetPath,
+        options.shadowDir,
+        assetOutputDir,
+        details,
+      );
+      const writer = await createAppendWriter(filePath, details);
+      await appendAssetManifest(assetsPath, manifestPath, details);
       return writer;
     },
 

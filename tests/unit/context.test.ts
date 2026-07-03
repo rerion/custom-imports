@@ -62,23 +62,26 @@ describe("Context.newAssetFile", () => {
     await expect(readFile(copiedAsset, "utf8")).resolves.toBe("bytes");
   });
 
-  it("appends the path to the .assets manifest", async () => {
-    seed({ "src/logo.svg": "<svg />" });
+  it("appends shadow-root-relative paths to the .assets manifest", async () => {
+    seed({ "src/assets/logo.svg": "<svg />" });
 
-    const [ctx] = await createContext(projectPath("src/logo.svg"), {
+    const [ctx] = await createContext(projectPath("src/assets/logo.svg"), {
       ...contextOptions,
       import: {
         source: "./logo.svg",
-        resolvedPath: "logo.svg",
+        resolvedPath: "assets/logo.svg",
         importer: "main.ts",
       },
     });
 
-    await ctx.newAssetFile("copy/logo.svg");
+    await ctx.newAssetFile("logo.svg");
 
     await expect(
-      readFile(shadowPaths(contextOptions.shadowDir, "logo.svg").assetsPath, "utf8"),
-    ).resolves.toBe("copy/logo.svg\n");
+      readFile(
+        shadowPaths(contextOptions.shadowDir, "assets/logo.svg").assetsPath,
+        "utf8",
+      ),
+    ).resolves.toBe("assets/logo.svg\n");
   });
 
   it("rejects duplicate asset paths", async () => {
@@ -97,6 +100,63 @@ describe("Context.newAssetFile", () => {
 
     await expect(ctx.newAssetFile("copy/logo.svg")).rejects.toThrow(
       "File already exists",
+    );
+  });
+
+  it("treats absolute paths as shadow-root-relative", async () => {
+    seed({ "src/logo.svg": "<svg />" });
+
+    const [ctx] = await createContext(projectPath("src/logo.svg"), {
+      ...contextOptions,
+      import: {
+        source: "./logo.svg",
+        resolvedPath: "logo.svg",
+        importer: "main.ts",
+      },
+    });
+
+    const writer = await ctx.newAssetFile("/shared/logo-copy.svg");
+    await writer.write("bytes");
+
+    const copiedAsset = join(contextOptions.shadowDir, "shared/logo-copy.svg");
+
+    await expect(readFile(copiedAsset, "utf8")).resolves.toBe("bytes");
+    await expect(
+      readFile(shadowPaths(contextOptions.shadowDir, "logo.svg").assetsPath, "utf8"),
+    ).resolves.toBe("shared/logo-copy.svg\n");
+  });
+
+  it("rejects relative paths that escape the shadow directory", async () => {
+    seed({ "src/logo.svg": "<svg />" });
+
+    const [ctx] = await createContext(projectPath("src/logo.svg"), {
+      ...contextOptions,
+      import: {
+        source: "./logo.svg",
+        resolvedPath: "logo.svg",
+        importer: "main.ts",
+      },
+    });
+
+    await expect(ctx.newAssetFile("../../../outside.txt")).rejects.toThrow(
+      "Asset path escapes shadow directory",
+    );
+  });
+
+  it("rejects absolute paths that escape the shadow directory", async () => {
+    seed({ "src/logo.svg": "<svg />" });
+
+    const [ctx] = await createContext(projectPath("src/logo.svg"), {
+      ...contextOptions,
+      import: {
+        source: "./logo.svg",
+        resolvedPath: "logo.svg",
+        importer: "main.ts",
+      },
+    });
+
+    await expect(ctx.newAssetFile("/../outside.txt")).rejects.toThrow(
+      "Asset path escapes shadow directory",
     );
   });
 });
