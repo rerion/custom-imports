@@ -1,7 +1,7 @@
 import { access, readFile } from "node:fs/promises";
-import { watch } from "node:fs";
 import { constants } from "node:fs";
-import { join, relative, resolve } from "node:path";
+import { join, relative } from "node:path";
+import chokidar, { type FSWatcher } from "chokidar";
 import {
   build,
   getProjectPaths,
@@ -78,33 +78,45 @@ async function processWatchEvent(
 
 function watchSourceDirectory(
   context: WatchContext,
+  onReady: () => void,
   onError: (error: Error) => void,
-): void {
+): FSWatcher {
   const pending = new Map<string, ReturnType<typeof setTimeout>>();
 
-  watch(
-    context.sourceDir,
-    { recursive: true },
-    (_event, filename) => {
-      if (!filename) {
-        return;
-      }
+  const schedule = (absolutePath: string): void => {
+    const existing = pending.get(absolutePath);
+    if (existing) {
+      clearTimeout(existing);
+    }
 
-      const absolutePath = resolve(context.sourceDir, filename);
-      const existing = pending.get(absolutePath);
-      if (existing) {
-        clearTimeout(existing);
-      }
+    pending.set(
+      absolutePath,
+      setTimeout(() => {
+        pending.delete(absolutePath);
+        void processWatchEvent(context, absolutePath).catch(onError);
+      }, 50),
+    );
+  };
 
-      pending.set(
-        absolutePath,
-        setTimeout(() => {
-          pending.delete(absolutePath);
-          void processWatchEvent(context, absolutePath).catch(onError);
-        }, 50),
-      );
+  const watcher = chokidar.watch(context.sourceDir, {
+    ignoreInitial: true,
+    awaitWriteFinish: {
+      stabilityThreshold: 50,
+      pollInterval: 10,
     },
-  );
+  });
+
+  watcher.once("ready", onReady);
+
+  watcher.on("all", (_event, absolutePath) => {
+    schedule(absolutePath);
+  });
+
+  watcher.on("error", (error) => {
+    onError(error instanceof Error ? error : new Error(String(error)));
+  });
+
+  return watcher;
 }
 
 export async function watchProject(configPath: string): Promise<void> {
@@ -121,10 +133,6 @@ export async function watchProject(configPath: string): Promise<void> {
     buildResult,
   );
 
-  console.log(
-    `watching ${sourceDir} (${tracker.sourceCount} source files, ${tracker.targetCount} assets)`,
-  );
-
   const context: WatchContext = {
     sourceDir,
     tracker,
@@ -132,8 +140,28 @@ export async function watchProject(configPath: string): Promise<void> {
   };
 
   await new Promise<void>((_resolve, reject) => {
-    watchSourceDirectory(context, (error) => {
-      reject(error);
-    });
+    let watcher: FSWatcher;
+
+    const shutdown = (): void => {
+      void watcher.close().finally(() => {
+        process.exit(0);
+      });
+    };
+
+    watcher = watchSourceDirectory(
+      context,
+      () => {
+        console.log(
+          `watching ${sourceDir} (${tracker.sourceCount} source files, ${tracker.targetCount} assets)`,
+        );
+      },
+      (error) => {
+        void watcher.close();
+        reject(error);
+      },
+    );
+
+    process.once("SIGTERM", shutdown);
+    process.once("SIGINT", shutdown);
   });
 }

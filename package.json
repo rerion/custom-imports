@@ -39,6 +39,7 @@
     }
   },
   "dependencies": {
+    "chokidar": "^5.0.0",
     "tree-sitter-typescript": "^0.23.2",
     "ts-morph": "^28.0.0",
     "typescript": "^6.0.3",
