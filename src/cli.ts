@@ -14,9 +14,14 @@ const DEFAULT_CONFIG_PATH = "custom-imports.config.ts";
 export const EMPTY_CONFIG = `import { defineConfig } from "custom-imports";
 
 export default defineConfig({
+    // Directory scanned for TypeScript sources and relative asset imports.
     sourceDir: "src",
+    // Directory where generated .js, .d.ts, and plugin asset files are written.
     shadowDir: ".shadow",
+    // Plugins that match imported asset paths and generate shadow modules.
     plugins: [],
+    // When true, strip trailing .js/.mjs from resolved relative import paths.
+    // esm: false,
 });
 `;
 
