@@ -247,6 +247,9 @@ importers:
       '@test/image-copy':
         specifier: workspace:*
         version: link:../../../../test-plugins/image-copy
+      '@test/replicator':
+        specifier: workspace:*
+        version: link:../../../../test-plugins/replicator
       '@test/text-with-length':
         specifier: workspace:*
         version: link:../../../../test-plugins/text-with-length
@@ -255,6 +258,19 @@ importers:
         version: link:../../../../..
 
   tests/test-plugins/image-copy:
+    dependencies:
+      custom-imports:
+        specifier: workspace:*
+        version: link:../../..
+    devDependencies:
+      '@types/node':
+        specifier: ^26.1.0
+        version: 26.1.0
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
+  tests/test-plugins/replicator:
     dependencies:
       custom-imports:
         specifier: workspace:*

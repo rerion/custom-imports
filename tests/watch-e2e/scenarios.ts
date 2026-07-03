@@ -4,6 +4,7 @@ import type { WatchScenario } from "./runner.js";
 
 const MAIN_PATH = join("src", "main.ts");
 const GREETING_PATH = join("src", "greeting.txt");
+const WIDGETS_COUNT_PATH = join("src", "assets", "widgets.count");
 
 export function createScenarios(scenariosRoot: string): WatchScenario[] {
     return [
@@ -63,8 +64,8 @@ export function createScenarios(scenariosRoot: string): WatchScenario[] {
             updatePattern: /removed greeting\.txt/,
         },
         {
-            name: "asset changed",
-            outputDir: join(scenariosRoot, "asset-changed", "output"),
+            name: "target changed",
+            outputDir: join(scenariosRoot, "target-changed", "output"),
             action: async (inputDir) => {
                 await writeFile(
                     join(inputDir, GREETING_PATH),
@@ -73,6 +74,18 @@ export function createScenarios(scenariosRoot: string): WatchScenario[] {
                 );
             },
             updatePattern: /regenerated greeting\.txt/,
+        },
+        {
+            name: "many assets change",
+            outputDir: join(scenariosRoot, "many-assets-change", "output"),
+            action: async (inputDir) => {
+                await writeFile(
+                    join(inputDir, WIDGETS_COUNT_PATH),
+                    "5\n",
+                    "utf8",
+                );
+            },
+            updatePattern: /regenerated assets\/widgets\.count/,
         },
         {
             name: "unrelated edit",

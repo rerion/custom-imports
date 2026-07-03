@@ -3,7 +3,8 @@ import banner from "./assets/banner.txt";
 import sidebar from "./assets/copy/sidebar.txt";
 import logo from "./assets/logo.svg";
 import icon from "./assets/icon.png";
+import widgets from "./assets/widgets.count";
 
 export function main(): void {
-    console.log(greeting.content, banner.length, sidebar.content, logo, icon);
+    console.log(greeting.content, banner.length, sidebar.content, logo, icon, widgets.length);
 }

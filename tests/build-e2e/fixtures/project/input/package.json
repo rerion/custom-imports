@@ -6,6 +6,7 @@
   "dependencies": {
     "custom-imports": "workspace:*",
     "@test/image-copy": "workspace:*",
+    "@test/replicator": "workspace:*",
     "@test/text-with-length": "workspace:*"
   }
 }
