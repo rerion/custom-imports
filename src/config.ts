@@ -10,6 +10,7 @@ export interface UserConfig {
     sourceDir: string;
     shadowDir: string;
     plugins: Plugin[];
+    esm?: boolean;
 }
 
 export function defineConfig(config: UserConfig): UserConfig {
@@ -62,6 +63,16 @@ export function validateUserConfig(
     } else if (!Array.isArray(config.plugins)) {
         problems.push(
             `"plugins" must be an array, got ${describeValue(config.plugins)}`,
+        );
+    }
+
+    if (
+        "esm" in config &&
+        config.esm !== undefined &&
+        typeof config.esm !== "boolean"
+    ) {
+        problems.push(
+            `"esm" must be a boolean, got ${describeValue(config.esm)}`,
         );
     }
 

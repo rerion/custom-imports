@@ -14,6 +14,7 @@ import { parseImportSpecifiers } from "./parse-imports.js";
 interface WatchContext {
   sourceDir: string;
   tracker: ImportTracker;
+  esm: boolean;
 }
 
 async function fileExists(path: string): Promise<boolean> {
@@ -28,12 +29,14 @@ async function fileExists(path: string): Promise<boolean> {
 async function loadImports(
   sourceDir: string,
   sourcePath: string,
+  esm: boolean,
 ) {
   const absolutePath = join(sourceDir, sourcePath);
   const source = await readFile(absolutePath, "utf8");
   return resolveImports(
     sourcePath,
     await parseImportSpecifiers(absolutePath, source),
+    esm,
   );
 }
 
@@ -57,7 +60,11 @@ async function processWatchEvent(
       return;
     }
 
-    const imports = await loadImports(context.sourceDir, relativePath);
+    const imports = await loadImports(
+      context.sourceDir,
+      relativePath,
+      context.esm,
+    );
     if (await context.tracker.sourceChanged(relativePath, imports)) {
       console.log(`update ${relativePath}`);
     }
@@ -118,7 +125,11 @@ export async function watchProject(configPath: string): Promise<void> {
     `watching ${sourceDir} (${tracker.sourceCount} source files, ${tracker.targetCount} assets)`,
   );
 
-  const context: WatchContext = { sourceDir, tracker };
+  const context: WatchContext = {
+    sourceDir,
+    tracker,
+    esm: config.esm ?? false,
+  };
 
   await new Promise<void>((_resolve, reject) => {
     watchSourceDirectory(context, (error) => {

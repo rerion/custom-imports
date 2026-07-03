@@ -52,6 +52,21 @@ describe("validateUserConfig", () => {
         ).toThrow('"sourceDir" must be a string, got number');
     });
 
+    it("rejects non-boolean esm values", () => {
+        expect(() =>
+            validateUserConfig(
+                { ...emptyPlugins, esm: "yes" },
+                configPath,
+            ),
+        ).toThrow('"esm" must be a boolean, got string');
+    });
+
+    it("accepts esm when it is a boolean", () => {
+        expect(
+            validateUserConfig({ ...emptyPlugins, esm: true }, configPath),
+        ).toEqual({ ...emptyPlugins, esm: true });
+    });
+
     it("reports multiple validation problems in one error", () => {
         expect(() => validateUserConfig({}, configPath)).toThrow(
             'missing required field "sourceDir"; missing required field "shadowDir"; missing required field "plugins"',

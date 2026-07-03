@@ -12,6 +12,7 @@ import {
   isSourceFile,
   resolveImportPath,
   resolveImports,
+  stripEsmImportSuffix,
 } from "../../src/build.js";
 import type { Plugin } from "../../src/plugin.js";
 import * as contextModule from "../../src/context.js";
@@ -98,6 +99,47 @@ describe("resolveImports", () => {
       { source: "./b.txt", resolvedPath: "src/b.txt" },
       { source: "../c.txt", resolvedPath: "c.txt" },
     ]);
+  });
+
+  it("strips .js and .mjs suffixes from relative imports in esm mode", () => {
+    expect(
+      resolveImports("src/main.ts", ["./greeting.txt.js"], true),
+    ).toEqual([
+      { source: "./greeting.txt.js", resolvedPath: "src/greeting.txt" },
+    ]);
+
+    expect(
+      resolveImports("src/main.ts", ["./assets/copy/sidebar.txt.mjs"], true),
+    ).toEqual([
+      {
+        source: "./assets/copy/sidebar.txt.mjs",
+        resolvedPath: "src/assets/copy/sidebar.txt",
+      },
+    ]);
+  });
+
+  it("does not strip suffixes from relative imports when esm mode is off", () => {
+    expect(
+      resolveImports("src/main.ts", ["./greeting.txt.js"], false),
+    ).toEqual([
+      { source: "./greeting.txt.js", resolvedPath: "src/greeting.txt.js" },
+    ]);
+  });
+
+  it("does not strip suffixes from bare specifiers in esm mode", () => {
+    expect(resolveImports("src/main.ts", ["lodash"], true)).toEqual([
+      { source: "lodash", resolvedPath: "src/lodash" },
+    ]);
+  });
+});
+
+describe("stripEsmImportSuffix", () => {
+  it("strips .js and .mjs suffixes", () => {
+    expect(stripEsmImportSuffix("assets/logo.svg.js")).toBe("assets/logo.svg");
+    expect(stripEsmImportSuffix("assets/widgets.count.mjs")).toBe(
+      "assets/widgets.count",
+    );
+    expect(stripEsmImportSuffix("greeting.txt")).toBe("greeting.txt");
   });
 });
 

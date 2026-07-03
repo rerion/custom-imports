@@ -24,14 +24,32 @@ export function resolveImportPath(
   return relative(".", resolve(dirname(importerPath), specifier));
 }
 
+export function stripEsmImportSuffix(resolvedPath: string): string {
+  if (resolvedPath.endsWith(".mjs")) {
+    return resolvedPath.slice(0, -4);
+  }
+
+  if (resolvedPath.endsWith(".js")) {
+    return resolvedPath.slice(0, -3);
+  }
+
+  return resolvedPath;
+}
+
 export function resolveImports(
   importerPath: string,
   specifiers: string[],
+  esm = false,
 ): Import[] {
-  return specifiers.map((source) => ({
-    source,
-    resolvedPath: resolveImportPath(importerPath, source),
-  }));
+  return specifiers.map((source) => {
+    let resolvedPath = resolveImportPath(importerPath, source);
+
+    if (esm && isRelativeImport(source)) {
+      resolvedPath = stripEsmImportSuffix(resolvedPath);
+    }
+
+    return { source, resolvedPath };
+  });
 }
 
 export interface AssetImport {
@@ -162,6 +180,7 @@ export async function build(
     const imports = resolveImports(
       importerPath,
       await parseImportSpecifiers(absolutePath, source),
+      config.esm ?? false,
     );
 
     files.push({
