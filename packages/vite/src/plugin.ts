@@ -1,19 +1,22 @@
-import { relative } from "node:path";
+import { resolve } from "node:path";
 import {
   createCustomImports,
+  isSourceFile,
+  relativePathInDir,
   type CustomImports,
   type UserConfig,
 } from "custom-imports";
 import type { ModuleNode, Plugin, ResolvedConfig, ViteDevServer } from "vite";
-import { isSourcePath, resolveShadowImport } from "./resolve.js";
 
 interface PluginContext {
   api: CustomImports;
 }
 
 function allowShadowDir(shadowDir: string, config: ResolvedConfig): void {
+  const normalized = resolve(shadowDir);
   const allow = config.server.fs.allow;
-  if (!allow.includes(shadowDir)) {
+
+  if (!allow.some((entry) => resolve(entry) === normalized)) {
     allow.push(shadowDir);
   }
 }
@@ -31,20 +34,11 @@ function shadowModules(shadowDir: string, server: ViteDevServer): ModuleNode[] {
   return modules;
 }
 
-function isInSourceDir(file: string, sourceDir: string): string | null {
-  const relativePath = relative(sourceDir, file);
-  if (relativePath.startsWith("..")) {
-    return null;
-  }
-
-  return relativePath;
-}
-
 async function syncFile(
   api: CustomImports,
   relativePath: string,
 ): Promise<boolean> {
-  if (isSourcePath(relativePath)) {
+  if (isSourceFile(relativePath)) {
     return api.syncSource(relativePath);
   }
 
@@ -87,12 +81,7 @@ export function customImports(config: UserConfig): Plugin {
         return null;
       }
 
-      return resolveShadowImport({
-        source,
-        importer,
-        api: ctx.api,
-        esm: ctx.api.esm,
-      });
+      return ctx.api.resolveImport(source, importer);
     },
 
     configureServer(server) {
@@ -100,20 +89,22 @@ export function customImports(config: UserConfig): Plugin {
         return;
       }
 
-      allowShadowDir(ctx.api.shadowDir, server.config);
+      const { api } = ctx;
+      allowShadowDir(api.shadowDir, server.config);
 
+      // Vite has no handleHotDelete; unlink must be handled separately from handleHotUpdate.
       server.watcher.on("unlink", (file) => {
-        const relativePath = isInSourceDir(file, ctx!.api.sourceDir);
-        if (!relativePath || !isSourcePath(relativePath)) {
+        const relativePath = relativePathInDir(file, api.sourceDir);
+        if (!relativePath || !isSourceFile(relativePath)) {
           return;
         }
 
-        void ctx!.api.syncSourceRemoved(relativePath).then((changed) => {
+        void api.syncSourceRemoved(relativePath).then((changed) => {
           if (!changed) {
             return;
           }
 
-          for (const module of shadowModules(ctx!.api.shadowDir, server)) {
+          for (const module of shadowModules(api.shadowDir, server)) {
             server.moduleGraph.invalidateModule(module);
           }
         });
@@ -125,7 +116,7 @@ export function customImports(config: UserConfig): Plugin {
         return;
       }
 
-      const relativePath = isInSourceDir(file, ctx.api.sourceDir);
+      const relativePath = relativePathInDir(file, ctx.api.sourceDir);
       if (!relativePath) {
         return;
       }

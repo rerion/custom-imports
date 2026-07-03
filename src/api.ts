@@ -15,6 +15,7 @@ import type { UserConfig } from "./config.js";
 import { loadConfig } from "./config.js";
 import { ImportTracker } from "./import-tracker.js";
 import { parseImportSpecifiers, type Import } from "./parse-imports.js";
+import { resolveShadowImport } from "./resolve-import.js";
 import { removeAssetShadow } from "./shadow.js";
 
 export type { TargetKind } from "./build.js";
@@ -44,6 +45,10 @@ export interface CustomImports {
   cleanImport(targetPath: string): Promise<void>;
   cleanAll(): Promise<void>;
   targetKind(targetPath: string): Promise<TargetKind>;
+  resolveImport(
+    source: string,
+    importer: string | undefined,
+  ): Promise<string | null>;
 }
 
 export async function createCustomImports(
@@ -193,6 +198,20 @@ export async function createCustomImports(
 
     async targetKind(targetPath: string): Promise<TargetKind> {
       return resolveTargetKind(config.plugins, targetPath, sourceDir);
+    },
+
+    async resolveImport(
+      source: string,
+      importer: string | undefined,
+    ): Promise<string | null> {
+      return resolveShadowImport({
+        source,
+        importer,
+        sourceDir,
+        shadowDir,
+        esm,
+        targetKind: (path) => resolveTargetKind(config.plugins, path, sourceDir),
+      });
     },
 
     async cleanImport(targetPath: string): Promise<void> {

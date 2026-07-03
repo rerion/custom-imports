@@ -99,6 +99,16 @@ export function isSourceFile(path: string): boolean {
   return SOURCE_EXTENSIONS.has(extname(path));
 }
 
+/** Returns `file` relative to `dir`, or null when `file` is outside `dir`. */
+export function relativePathInDir(file: string, dir: string): string | null {
+  const relativePath = relative(resolve(dir), resolve(file));
+  if (relativePath.startsWith("..")) {
+    return null;
+  }
+
+  return relativePath;
+}
+
 export async function findMatchingPlugin(
   plugins: AnyPlugin[],
   resolvedPath: string,

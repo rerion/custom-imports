@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import type { CustomImports, TargetKind } from "custom-imports";
-import { resolveShadowImport } from "../../packages/vite/src/resolve.js";
+import type { TargetKind } from "custom-imports";
+import { resolveShadowImport } from "../../src/resolve-import.js";
 
-function createApi(options: {
+function createOptions(options: {
   esm?: boolean;
   targetKind?: (path: string) => TargetKind;
-} = {}): CustomImports {
+} = {}) {
   const targetKind = options.targetKind ?? ((path) =>
     path.endsWith(".txt") ? "js" : "none");
 
@@ -13,14 +13,7 @@ function createApi(options: {
     sourceDir: "/project/src",
     shadowDir: "/project/.shadow",
     esm: options.esm ?? false,
-    build: async () => {},
-    extractImports: async () => [],
-    syncSource: async () => false,
-    syncSourceRemoved: async () => false,
-    regenerateTarget: async () => {},
-    cleanImport: async () => {},
-    cleanAll: async () => {},
-    targetKind: async (path) => targetKind(path),
+    targetKind: async (path: string) => targetKind(path),
   };
 }
 
@@ -30,8 +23,7 @@ describe("resolveShadowImport", () => {
       resolveShadowImport({
         source: "./message.txt",
         importer: "/project/src/main.ts",
-        api: createApi(),
-        esm: false,
+        ...createOptions(),
       }),
     ).resolves.toBe("/project/.shadow/message.txt.js");
   });
@@ -41,8 +33,7 @@ describe("resolveShadowImport", () => {
       resolveShadowImport({
         source: "./note.txt",
         importer: "/project/src/components/card.ts",
-        api: createApi(),
-        esm: false,
+        ...createOptions(),
       }),
     ).resolves.toBe("/project/.shadow/components/note.txt.js");
   });
@@ -52,8 +43,7 @@ describe("resolveShadowImport", () => {
       resolveShadowImport({
         source: "./message.txt.js",
         importer: "/project/src/main.ts",
-        api: createApi({ esm: true }),
-        esm: true,
+        ...createOptions({ esm: true }),
       }),
     ).resolves.toBe("/project/.shadow/message.txt.js");
   });
@@ -63,8 +53,7 @@ describe("resolveShadowImport", () => {
       resolveShadowImport({
         source: "./message.txt",
         importer: "/project/lib/main.ts",
-        api: createApi(),
-        esm: false,
+        ...createOptions(),
       }),
     ).resolves.toBeNull();
   });
@@ -74,8 +63,7 @@ describe("resolveShadowImport", () => {
       resolveShadowImport({
         source: "./logo.svg",
         importer: "/project/src/main.ts",
-        api: createApi(),
-        esm: false,
+        ...createOptions(),
       }),
     ).resolves.toBeNull();
   });
@@ -85,8 +73,7 @@ describe("resolveShadowImport", () => {
       resolveShadowImport({
         source: "react",
         importer: "/project/src/main.ts",
-        api: createApi(),
-        esm: false,
+        ...createOptions(),
       }),
     ).resolves.toBeNull();
   });
@@ -96,11 +83,22 @@ describe("resolveShadowImport", () => {
       resolveShadowImport({
         source: "./message.txt",
         importer: "/project/src/main.ts",
-        api: createApi({
+        ...createOptions({
           targetKind: (path) => (path.endsWith(".txt") ? "assets" : "none"),
         }),
-        esm: false,
       }),
     ).resolves.toBeNull();
+  });
+});
+
+describe("relativePathInDir", () => {
+  it("returns a relative path when file is inside dir", async () => {
+    const { relativePathInDir } = await import("../../src/build.js");
+
+    expect(relativePathInDir("/project/src/nested/main.ts", "/project/src")).toBe(
+      "nested/main.ts",
+    );
+    expect(relativePathInDir("/project/src", "/project/src")).toBe("");
+    expect(relativePathInDir("/project/lib/main.ts", "/project/src")).toBeNull();
   });
 });
