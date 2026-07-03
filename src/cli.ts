@@ -3,13 +3,14 @@
 import { access, writeFile } from "node:fs/promises";
 import { constants } from "node:fs";
 import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { buildProject } from "./build.js";
 import { watchProject } from "./watch.js";
 
 const DEFAULT_CONFIG_PATH = "custom-imports.config.ts";
 
-const EMPTY_CONFIG = `import { defineConfig } from "custom-imports";
+export const EMPTY_CONFIG = `import { defineConfig } from "custom-imports";
 
 export default defineConfig({
     sourceDir: "src",
@@ -27,18 +28,18 @@ Options:
   -h, --help       Show this help message
 `;
 
-interface CliOptions {
+export interface CliOptions {
   watch: boolean;
   configPath: string;
   init: boolean;
   help: boolean;
 }
 
-function printHelp(): void {
+export function printHelp(): void {
   console.log(HELP_TEXT.trimEnd());
 }
 
-function parseCliArgs(argv: string[]): CliOptions {
+export function parseCliArgs(argv: string[]): CliOptions {
   const { values } = parseArgs({
     args: argv,
     options: {
@@ -71,7 +72,7 @@ async function fileExists(path: string): Promise<boolean> {
   }
 }
 
-async function initConfig(configPath: string): Promise<void> {
+export async function initConfig(configPath: string): Promise<void> {
   if (await fileExists(configPath)) {
     throw new Error(`Config file already exists: ${configPath}`);
   }
@@ -101,8 +102,12 @@ async function main(): Promise<void> {
   await buildProject(options.configPath);
 }
 
-main().catch((error: unknown) => {
-  const message = error instanceof Error ? error.message : String(error);
-  console.error(message);
-  process.exit(1);
-});
+const isMain = process.argv[1] === fileURLToPath(import.meta.url);
+
+if (isMain) {
+  main().catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(message);
+    process.exit(1);
+  });
+}

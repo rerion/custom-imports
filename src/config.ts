@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, dirname, extname, join, resolve } from "node:path";
-import { pathToFileURL } from "node:url";
 import ts from "typescript";
+import { importDefaultExport } from "./import-default-export.js";
 import type { Plugin } from "./plugin.js";
 
 const SUPPORTED_EXTENSIONS = new Set([".ts", ".mts", ".js", ".mjs"]);
@@ -16,27 +16,62 @@ export function defineConfig(config: UserConfig): UserConfig {
     return config;
 }
 
-function isUserConfig(value: unknown): value is UserConfig {
-    return (
-        typeof value === "object" &&
-        value !== null &&
-        "sourceDir" in value &&
-        typeof (value as UserConfig).sourceDir === "string" &&
-        "shadowDir" in value &&
-        typeof (value as UserConfig).shadowDir === "string" &&
-        "plugins" in value &&
-        Array.isArray((value as UserConfig).plugins)
-    );
+function describeValue(value: unknown): string {
+    if (value === null) {
+        return "null";
+    }
+
+    if (Array.isArray(value)) {
+        return "array";
+    }
+
+    return typeof value;
 }
 
-function assertUserConfig(value: unknown, configPath: string): UserConfig {
-    if (!isUserConfig(value)) {
+export function validateUserConfig(
+    value: unknown,
+    configPath: string,
+): UserConfig {
+    if (typeof value !== "object" || value === null) {
         throw new Error(
-            `Config at ${configPath} must default-export a valid config object`,
+            `Config at ${configPath} must default-export an object, got ${describeValue(value)}`,
         );
     }
 
-    return value;
+    const config = value as Record<string, unknown>;
+    const problems: string[] = [];
+
+    if (!("sourceDir" in config)) {
+        problems.push('missing required field "sourceDir"');
+    } else if (typeof config.sourceDir !== "string") {
+        problems.push(
+            `"sourceDir" must be a string, got ${describeValue(config.sourceDir)}`,
+        );
+    }
+
+    if (!("shadowDir" in config)) {
+        problems.push('missing required field "shadowDir"');
+    } else if (typeof config.shadowDir !== "string") {
+        problems.push(
+            `"shadowDir" must be a string, got ${describeValue(config.shadowDir)}`,
+        );
+    }
+
+    if (!("plugins" in config)) {
+        problems.push('missing required field "plugins"');
+    } else if (!Array.isArray(config.plugins)) {
+        problems.push(
+            `"plugins" must be an array, got ${describeValue(config.plugins)}`,
+        );
+    }
+
+    if (problems.length > 0) {
+        throw new Error(
+            `Invalid config at ${configPath}: ${problems.join("; ")}`,
+        );
+    }
+
+    return value as UserConfig;
 }
 
 async function compileTypeScriptConfig(configPath: string): Promise<string> {
@@ -59,11 +94,6 @@ async function compileTypeScriptConfig(configPath: string): Promise<string> {
     return outputPath;
 }
 
-async function importDefaultExport(modulePath: string): Promise<unknown> {
-    const module = await import(pathToFileURL(modulePath).href);
-    return module.default;
-}
-
 export async function loadConfig(configPath: string): Promise<UserConfig> {
     const absolutePath = resolve(configPath);
     const extension = extname(absolutePath);
@@ -75,10 +105,10 @@ export async function loadConfig(configPath: string): Promise<UserConfig> {
     }
 
     const modulePath =
-        extension === ".ts"
+        extension === ".ts" || extension === ".mts"
             ? await compileTypeScriptConfig(absolutePath)
             : absolutePath;
 
     const exported = await importDefaultExport(modulePath);
-    return assertUserConfig(exported, absolutePath);
+    return validateUserConfig(exported, absolutePath);
 }
