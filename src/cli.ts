@@ -6,6 +6,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { buildProject } from "./build.js";
+import { mergeProjectWithLog } from "./merge.js";
 import { watchProject } from "./watch.js";
 
 const DEFAULT_CONFIG_PATH = "custom-imports.config.ts";
@@ -24,6 +25,8 @@ const HELP_TEXT = `Usage: custom-imports [options]
 Options:
   --config <path>  Path to config file (default: ${DEFAULT_CONFIG_PATH})
   --watch          Watch for changes and rebuild incrementally
+  --merge          Merge generated shadow output into the source tree
+  --into <path>    With --merge, merge source and shadow into this directory instead
   --init           Create an empty config file (cannot be combined with other options)
   -h, --help       Show this help message
 `;
@@ -33,6 +36,8 @@ export interface CliOptions {
   configPath: string;
   init: boolean;
   help: boolean;
+  merge: boolean;
+  into?: string;
 }
 
 export function printHelp(): void {
@@ -47,12 +52,28 @@ export function parseCliArgs(argv: string[]): CliOptions {
       config: { type: "string" },
       init: { type: "boolean", default: false },
       help: { type: "boolean", short: "h", default: false },
+      merge: { type: "boolean", default: false },
+      into: { type: "string" },
     },
     strict: true,
   });
 
-  if (values.init && (values.watch || values.config !== undefined)) {
+  if (
+    values.init &&
+    (values.watch ||
+      values.config !== undefined ||
+      values.merge ||
+      values.into !== undefined)
+  ) {
     throw new Error("--init cannot be combined with other options");
+  }
+
+  if (values.into !== undefined && !values.merge) {
+    throw new Error("--into requires --merge");
+  }
+
+  if (values.merge && values.watch) {
+    throw new Error("--merge cannot be combined with --watch");
   }
 
   return {
@@ -60,6 +81,8 @@ export function parseCliArgs(argv: string[]): CliOptions {
     configPath: resolve(values.config ?? DEFAULT_CONFIG_PATH),
     init: values.init ?? false,
     help: values.help ?? false,
+    merge: values.merge ?? false,
+    ...(values.into !== undefined ? { into: values.into } : {}),
   };
 }
 
@@ -96,6 +119,11 @@ async function main(): Promise<void> {
 
   if (options.watch) {
     await watchProject(options.configPath);
+    return;
+  }
+
+  if (options.merge) {
+    await mergeProjectWithLog(options.configPath, options.into);
     return;
   }
 

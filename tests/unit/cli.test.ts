@@ -38,6 +38,17 @@ describe("parseCliArgs", () => {
     expect(parseCliArgs(["--init"]).init).toBe(true);
   });
 
+  it("parses --merge", () => {
+    expect(parseCliArgs(["--merge"]).merge).toBe(true);
+  });
+
+  it("parses --merge --into", () => {
+    const options = parseCliArgs(["--merge", "--into", "dist"]);
+
+    expect(options.merge).toBe(true);
+    expect(options.into).toBe("dist");
+  });
+
   it("rejects --init combined with --watch", () => {
     expect(() => parseCliArgs(["--init", "--watch"])).toThrow(
       "--init cannot be combined with other options",
@@ -47,6 +58,18 @@ describe("parseCliArgs", () => {
   it("rejects --init combined with --config", () => {
     expect(() => parseCliArgs(["--init", "--config", "foo.ts"])).toThrow(
       "--init cannot be combined with other options",
+    );
+  });
+
+  it("rejects --into without --merge", () => {
+    expect(() => parseCliArgs(["--into", "dist"])).toThrow(
+      "--into requires --merge",
+    );
+  });
+
+  it("rejects --merge combined with --watch", () => {
+    expect(() => parseCliArgs(["--merge", "--watch"])).toThrow(
+      "--merge cannot be combined with --watch",
     );
   });
 
@@ -85,6 +108,7 @@ describe("printHelp", () => {
     expect(log).toHaveBeenCalledOnce();
     expect(log.mock.calls[0]![0]).toContain("Usage: custom-imports");
     expect(log.mock.calls[0]![0]).toContain("--watch");
+    expect(log.mock.calls[0]![0]).toContain("--merge");
     expect(log.mock.calls[0]![0]).toContain("--init");
 
     log.mockRestore();
